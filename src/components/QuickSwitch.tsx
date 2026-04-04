@@ -89,7 +89,7 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] animate-fadeIn">
       {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click-to-close */}
       <div
         className="absolute inset-0 bg-black/50"
@@ -98,7 +98,7 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
         role="presentation"
       />
       <div
-        className="relative w-[480px] bg-[#1c1c1c] rounded-xl shadow-2xl overflow-hidden"
+        className="relative w-[480px] bg-[#1c1c1c] rounded-xl shadow-2xl shadow-black/60 overflow-hidden border border-white/[0.04]"
         role="dialog"
         onKeyDown={handleKeyDown}
       >

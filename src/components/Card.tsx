@@ -57,7 +57,8 @@ export function Card({ session, onOpen }: CardProps) {
       className={`
         group relative bg-[#1c1c1c] rounded-lg p-3 cursor-grab active:cursor-grabbing
         border border-transparent hover:border-white/[0.06]
-        hover:bg-[#202020] transition-colors
+        hover:bg-[#202020] hover:shadow-md hover:shadow-black/20
+        transition-all duration-100 ease-out
         ${isDragging ? "opacity-30" : ""}
       `}
     >

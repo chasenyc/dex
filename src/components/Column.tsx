@@ -45,9 +45,9 @@ export function Column({ name, onOpenSession }: ColumnProps) {
   return (
     <div
       className={`
-        flex flex-col min-w-[260px] w-[280px] shrink-0
-        bg-[#131313] rounded-lg
-        ${isOver ? "ring-1 ring-[#7c6aef]/30" : ""}
+        group/column flex flex-col min-w-[260px] w-[280px] shrink-0
+        bg-[#131313] rounded-lg transition-all duration-100
+        ${isOver ? "ring-1 ring-[#7c6aef]/30 bg-[#161616]" : ""}
       `}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: context menu on column header */}
@@ -93,7 +93,7 @@ export function Column({ name, onOpenSession }: ColumnProps) {
           <button
             type="button"
             onClick={() => removeColumn(name)}
-            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-[#333333] hover:text-[#c05050] transition-all p-0.5"
+            className="opacity-0 group-hover/column:opacity-100 text-[#333333] hover:text-[#c05050] transition-all duration-100 p-0.5"
             title="Delete column"
           >
             <svg
