@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+
+# Tauri build output
+src-tauri/target/
+
+# Claude Code local settings
+.claude/settings.local.json
