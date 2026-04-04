@@ -5,9 +5,11 @@ import { Terminal } from "./components/Terminal";
 import { buildCommand } from "./lib/commands";
 import {
   addSession,
+  loadRegistry,
   resumeSession,
   setActiveSession,
   useActiveSession,
+  useRegistryLoaded,
   useSessions,
 } from "./store/sessions";
 
@@ -16,8 +18,14 @@ type View = "board" | "focus";
 export function App() {
   const sessions = useSessions();
   const activeSession = useActiveSession();
+  const loaded = useRegistryLoaded();
   const [view, setView] = useState<View>("board");
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
+
+  // Load persisted sessions on startup
+  useEffect(() => {
+    loadRegistry();
+  }, []);
 
   const openSession = useCallback(
     (id: string) => {
@@ -87,10 +95,17 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Only render terminals for sessions that are running
   const runningSessions = sessions.filter(
     (s) => s.status === "running" || s.status === "idle",
   );
+
+  if (!loaded) {
+    return (
+      <div className="h-screen w-screen bg-[#0f0f0f] flex items-center justify-center">
+        <span className="text-[11px] text-[#555555]">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen bg-[#0f0f0f] overflow-hidden flex flex-col">

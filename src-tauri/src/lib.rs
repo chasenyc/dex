@@ -1,4 +1,5 @@
 mod commands;
+mod persistence;
 mod pty;
 
 use pty::PtyManager;
@@ -17,6 +18,8 @@ pub fn run() {
             commands::write_to_session,
             commands::resize_session,
             commands::close_session,
+            persistence::load_registry,
+            persistence::save_registry,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

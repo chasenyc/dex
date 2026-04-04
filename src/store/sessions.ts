@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 
 export type SessionStatus = "running" | "idle" | "exited" | "error" | "closed";
@@ -14,13 +15,19 @@ export interface Session {
   status: SessionStatus;
   createdAt: number;
   lastActivity: number;
-  /** Tracks how many times the PTY has been spawned (create + resumes) */
   generation: number;
 }
 
 interface SessionStore {
   sessions: Map<string, Session>;
   activeSessionId: string | null;
+  columns: string[];
+  loaded: boolean;
+}
+
+// Serializable format for disk
+interface RegistryData {
+  sessions: Session[];
   columns: string[];
 }
 
@@ -30,6 +37,7 @@ let store: SessionStore = {
   sessions: new Map(),
   activeSessionId: null,
   columns: ["Backlog", "Active", "Done"],
+  loaded: false,
 };
 
 const listeners = new Set<Listener>();
@@ -49,9 +57,58 @@ function getSnapshot(): SessionStore {
   return store;
 }
 
-function generateUUID(): string {
-  return crypto.randomUUID();
+// --- Persistence ---
+
+function toRegistryData(): RegistryData {
+  return {
+    sessions: Array.from(store.sessions.values()),
+    columns: store.columns,
+  };
 }
+
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleSave() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const data = JSON.stringify(toRegistryData(), null, 2);
+    invoke("save_registry", { data }).catch((err) => {
+      console.error("Failed to save registry:", err);
+    });
+  }, 300);
+}
+
+export async function loadRegistry(): Promise<void> {
+  try {
+    const raw = await invoke<string>("load_registry");
+    if (raw && raw !== "null") {
+      const data: RegistryData = JSON.parse(raw);
+      const sessions = new Map<string, Session>();
+      for (const s of data.sessions) {
+        // Mark any previously running sessions as closed on reload
+        const status =
+          s.status === "running" || s.status === "idle" ? "closed" : s.status;
+        sessions.set(s.id, { ...s, status });
+      }
+      store = {
+        sessions,
+        activeSessionId: null,
+        columns: data.columns ?? ["Backlog", "Active", "Done"],
+        loaded: true,
+      };
+      emitChange();
+    } else {
+      store = { ...store, loaded: true };
+      emitChange();
+    }
+  } catch (err) {
+    console.error("Failed to load registry:", err);
+    store = { ...store, loaded: true };
+    emitChange();
+  }
+}
+
+// --- Actions ---
 
 export function addSession(opts: {
   name: string;
@@ -67,7 +124,7 @@ export function addSession(opts: {
     cwd: opts.cwd,
     column: opts.column ?? "Active",
     type: sessionType,
-    claudeSessionId: sessionType === "claude" ? generateUUID() : undefined,
+    claudeSessionId: sessionType === "claude" ? crypto.randomUUID() : undefined,
     status: "running",
     createdAt: Date.now(),
     lastActivity: Date.now(),
@@ -78,6 +135,7 @@ export function addSession(opts: {
   next.set(id, session);
   store = { ...store, sessions: next, activeSessionId: id };
   emitChange();
+  scheduleSave();
   return session;
 }
 
@@ -93,6 +151,7 @@ export function resumeSession(id: string) {
   });
   store = { ...store, sessions: next, activeSessionId: id };
   emitChange();
+  scheduleSave();
 }
 
 export function removeSession(id: string) {
@@ -102,6 +161,7 @@ export function removeSession(id: string) {
     store.activeSessionId === id ? null : store.activeSessionId;
   store = { ...store, sessions: next, activeSessionId };
   emitChange();
+  scheduleSave();
 }
 
 export function setActiveSession(id: string | null) {
@@ -117,6 +177,7 @@ export function updateSessionStatus(id: string, status: SessionStatus) {
   next.set(id, { ...session, status, lastActivity: Date.now() });
   store = { ...store, sessions: next };
   emitChange();
+  scheduleSave();
 }
 
 export function updateSessionColumn(id: string, column: string) {
@@ -126,6 +187,7 @@ export function updateSessionColumn(id: string, column: string) {
   next.set(id, { ...session, column });
   store = { ...store, sessions: next };
   emitChange();
+  scheduleSave();
 }
 
 export function moveSession(id: string, toColumn: string, _toIndex?: number) {
@@ -135,16 +197,19 @@ export function moveSession(id: string, toColumn: string, _toIndex?: number) {
   next.set(id, { ...session, column: toColumn });
   store = { ...store, sessions: next };
   emitChange();
+  scheduleSave();
 }
 
 export function setColumns(columns: string[]) {
   store = { ...store, columns };
   emitChange();
+  scheduleSave();
 }
 
+// --- Hooks ---
+
 export function useSessionStore() {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot);
-  return snapshot;
+  return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 export function useSessions(): Session[] {
@@ -166,4 +231,9 @@ export function useColumns(): string[] {
 export function useSessionsByColumn(column: string): Session[] {
   const { sessions } = useSessionStore();
   return Array.from(sessions.values()).filter((s) => s.column === column);
+}
+
+export function useRegistryLoaded(): boolean {
+  const { loaded } = useSessionStore();
+  return loaded;
 }
