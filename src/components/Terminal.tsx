@@ -26,9 +26,12 @@ export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
 
     const term = new XTerm({
       cursorBlink: true,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace",
-      fontSize: 13,
-      lineHeight: 1.4,
+      fontFamily: "'SF Mono', Menlo, Monaco, 'Cascadia Code', monospace",
+      fontSize: 12,
+      fontWeight: "400",
+      fontWeightBold: "600",
+      lineHeight: 1.0,
+      letterSpacing: 0,
       theme: {
         background: "#0f0f0f",
         foreground: "#e8e8e8",
