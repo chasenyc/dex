@@ -272,11 +272,11 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 - [x] Restore layout on app restart *(running sessions show as closed)*
 - [x] Restart session from disconnected state *(double-click resumes via claude --resume)*
 - [x] Keyboard shortcuts *(Cmd+N new, Cmd+[/] prev/next, Cmd+K switch, Cmd+B board)*
-- [ ] Visual polish pass — shadows, hover states, animations, spacing
+- [x] Visual polish pass *(title bar, hover shadows, 100ms transitions, 180ms view transitions, fade-in animations)*
 - [x] Card status dot animations (pulse for active)
 - [x] Delete session from board *(trash icon, hover to reveal, red on hover)*
-- [ ] Edge cases — session process dies, resize during drag, rapid switching
-- **Milestone: MVP complete — daily-drivable**
+- [x] Edge cases *(preview timer cleanup on exit, resize guard for hidden terminals, dimension check before fit)*
+- **Milestone: MVP complete — daily-drivable** ✅
 
 ### Bonus: Smart CWD (completed)
 - [x] Project index — Rust-side filesystem scan for .git, package.json, etc.
@@ -288,9 +288,21 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-- **Toggle shortcut**: What key combo for board ↔ focus toggle? Needs to not conflict with terminal apps. Candidates: `` Ctrl+` ``, `Cmd+\`, `Cmd+Shift+Space`, or a custom chord.
-- **Card preview rendering**: Do we render a tiny xterm.js canvas per card, or just extract text from the buffer and render as plain styled text? Canvas is more accurate but heavier. Text is lighter but loses formatting.
-- **Session limit**: Should we cap simultaneous sessions? 20+ PTY processes could get heavy. Probably just let it ride and see.
-- **Linux webview**: Tauri v2 uses WebKitGTK on Linux, which can lag behind Chromium. Need to test xterm.js rendering quality early.
+- **Toggle shortcut**: `Cmd+B` toggles board ↔ focus view.
+- **Card preview rendering**: Text extraction from xterm.js buffer (last 3 non-empty lines). Lightweight, no extra canvas.
+- **Session limit**: No cap. Let it ride.
+- **Linux webview**: Not yet tested. Future concern.
+
+## Future Work
+
+- Directory autocomplete/validation in the input
+- Column drag reordering
+- Session templates
+- Done column auto-cleanup
+- Light theme
+- Settings UI
+- Right-click context menu on cards (rename, change cwd)
+- Split pane view
+- Notifications when session needs attention

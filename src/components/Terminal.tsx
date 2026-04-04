@@ -120,6 +120,7 @@ export function Terminal({
     });
 
     const exitUnlisten = listen(`pty-exit-${ptyId}`, () => {
+      if (previewTimer) clearTimeout(previewTimer);
       updateSessionStatus(sessionId, "closed");
       onExit?.();
     });
@@ -137,11 +138,16 @@ export function Terminal({
     );
 
     const handleWindowResize = () => {
-      fitAddon.fit();
+      // Only fit if our container is visible (has dimensions)
+      const el = containerRef.current;
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+        fitAddon.fit();
+      }
     };
     window.addEventListener("resize", handleWindowResize);
 
     return () => {
+      if (previewTimer) clearTimeout(previewTimer);
       window.removeEventListener("resize", handleWindowResize);
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
@@ -155,8 +161,13 @@ export function Terminal({
   // Re-fit when visibility changes
   useEffect(() => {
     if (visible && fitAddonRef.current) {
-      // Small delay to let the DOM layout settle before fitting
-      const timer = setTimeout(() => fitAddonRef.current?.fit(), 10);
+      // Delay to let the DOM layout settle after display:none → block
+      const timer = setTimeout(() => {
+        const el = containerRef.current;
+        if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+          fitAddonRef.current?.fit();
+        }
+      }, 30);
       return () => clearTimeout(timer);
     }
   }, [visible]);
