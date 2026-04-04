@@ -1,7 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useSyncExternalStore } from "react";
 
-export type SessionStatus = "running" | "idle" | "exited" | "error" | "closed";
+export type SessionStatus =
+  | "running"
+  | "idle"
+  | "exited"
+  | "error"
+  | "closed"
+  | "permission";
 
 export type SessionType = "claude" | "shell";
 
@@ -318,4 +325,58 @@ export function useSessionsByColumn(column: string): Session[] {
 export function useRegistryLoaded(): boolean {
   const { loaded } = useSessionStore();
   return loaded;
+}
+
+// --- Hook State Listener ---
+
+const STATUS_MAP: Record<string, SessionStatus> = {
+  working: "running",
+  waiting: "idle",
+  permission: "permission",
+  error: "error",
+  ended: "closed",
+};
+
+export function startHookListener() {
+  listen<{
+    session_id: string;
+    state: string;
+    event: string;
+  }>("hook-state-update", (event) => {
+    const { session_id, state } = event.payload;
+    const status = STATUS_MAP[state];
+    if (!status) return;
+
+    // Access store directly — no stale closures
+    const { sessions } = store;
+
+    // Try matching by Claude session ID
+    let match: Session | undefined;
+    for (const session of sessions.values()) {
+      if (session.claudeSessionId === session_id) {
+        match = session;
+        break;
+      }
+    }
+
+    // Fallback: single running Claude session
+    if (!match) {
+      const running: Session[] = [];
+      for (const session of sessions.values()) {
+        if (
+          session.type === "claude" &&
+          (session.status === "running" || session.status === "idle")
+        ) {
+          running.push(session);
+        }
+      }
+      if (running.length === 1) {
+        match = running[0];
+      }
+    }
+
+    if (match) {
+      updateSessionStatus(match.id, status);
+    }
+  });
 }

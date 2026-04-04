@@ -1,4 +1,6 @@
 mod commands;
+mod hook_server;
+mod hooks;
 mod persistence;
 mod project_index;
 mod pty;
@@ -23,6 +25,9 @@ pub fn run() {
             persistence::save_registry,
             project_index::scan_projects,
             project_index::load_project_index,
+            hooks::install_hooks,
+            hooks::uninstall_hooks,
+            hooks::check_hooks_status,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -32,6 +37,10 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Start the hook HTTP server for real-time Claude state updates
+            hook_server::start(app.handle().clone());
+
             Ok(())
         })
         .run(tauri::generate_context!())

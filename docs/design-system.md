@@ -64,13 +64,15 @@ Borrowed from Zed: every interaction should feel instant. Animations exist to co
 
 **Status indicators:**
 
-| State | Color | Notes |
-|---|---|---|
-| Active (output flowing) | `#34d399` | Green, gentle pulse animation |
-| Running (waiting input) | `#60a5fa` | Blue, steady |
-| Idle | `#555555` | Gray, no animation |
-| Error | `#f87171` | Red |
-| Success (exited 0) | `#34d399` | Green, static checkmark |
+| State | Color | Hex | Notes |
+|---|---|---|---|
+| Working (Claude active) | Green | `#22c55e` | Bright, pulse animation — unmistakably "alive" |
+| Waiting (user's turn) | White | `#e8e8e8` | Steady, calm — stands out against dark bg without being alarming |
+| Permission (needs approval) | Amber | `#f59e0b` | Warm, urgent — demands attention without being error-red |
+| Closed (resumable) | Dark gray | `#444444` | Dormant, receded |
+| Error | Red | `#ef4444` | Unmistakable problem |
+
+Design rationale: The old green/blue pairing was too similar at small sizes on dark backgrounds. The new palette uses brightness and warmth as the differentiators — green (bright, saturated) vs white (bright, neutral) vs amber (warm) vs gray (dim) vs red (warm, alarming). Each is instantly distinguishable even at 8px.
 
 ### Color Rules
 

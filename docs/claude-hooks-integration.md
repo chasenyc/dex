@@ -144,82 +144,21 @@ Resolution order (all run, not just highest priority):
 6. Managed policy settings
 7. Skill/agent frontmatter
 
-## Recommended Architecture for Termaude
+## Architecture Decision: HTTP (Direct)
 
-### Option A: File-based State (Simplest)
+Termaude runs a lightweight HTTP server on `127.0.0.1:7878`. Hooks use the `http` handler type to POST events directly — no shell script, no state files, no polling.
 
-Hook commands write the session state to a known file. Termaude watches the file.
+**Why HTTP over file-based:**
+- **Instant** — sub-millisecond delivery, no filesystem latency or polling interval
+- **No script to deploy** — the `http` hook type is built into Claude Code, no bash/jq dependency
+- **No state files to manage** — Termaude receives events in-process, updates the store directly
+- **Simpler injection** — hooks in settings.json are just a URL, easy to identify and update
 
-```
-~/.termaude/state/<session-uuid>.json
-```
+**Tradeoff:** If Termaude isn't running, hooks fail silently (`async: true` so Claude doesn't care). When Termaude starts, cards show "closed" until the next hook fires. This is acceptable — the user is looking at the board, which means Termaude is running.
 
-Contents:
-```json
-{
-  "state": "waiting",
-  "timestamp": 1717000000000,
-  "event": "Stop",
-  "sessionId": "uuid"
-}
-```
+### Hook Identification
 
-**Hook script** (`~/.termaude/hooks/state-reporter.sh`):
-```bash
-#!/bin/bash
-# Read event JSON from stdin
-INPUT=$(cat)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
-EVENT=$(echo "$INPUT" | jq -r '.hook_event_name')
-
-# Map event to state
-case "$EVENT" in
-  UserPromptSubmit) STATE="running" ;;
-  PreToolUse) STATE="running" ;;
-  Stop) STATE="waiting" ;;
-  Notification) STATE="waiting" ;;  # refine by matcher
-  StopFailure) STATE="error" ;;
-  SessionEnd) STATE="ended" ;;
-  *) STATE="unknown" ;;
-esac
-
-# Write state file
-mkdir -p ~/.termaude/state
-echo "{\"state\":\"$STATE\",\"timestamp\":$(date +%s%3N),\"event\":\"$EVENT\",\"sessionId\":\"$SESSION_ID\"}" \
-  > ~/.termaude/state/"$SESSION_ID".json
-```
-
-**Termaude** polls or watches `~/.termaude/state/` for changes and updates card status.
-
-### Option B: HTTP-based (More Responsive)
-
-Termaude runs a tiny HTTP server on localhost. Hooks POST state changes to it.
-
-```json
-{
-  "type": "http",
-  "url": "http://127.0.0.1:7878/hook",
-  "timeout": 5,
-  "async": true
-}
-```
-
-**Pros**: Instant updates, no file polling, Termaude gets the full event JSON.
-**Cons**: Requires Termaude to run an HTTP server, port conflicts, hooks fail if Termaude isn't running.
-
-### Option C: Hybrid (Recommended)
-
-Use HTTP when Termaude is running, file-based as fallback:
-
-```bash
-#!/bin/bash
-INPUT=$(cat)
-# Try HTTP first (fast, real-time)
-echo "$INPUT" | curl -s -X POST -d @- http://127.0.0.1:7878/hook 2>/dev/null && exit 0
-# Fallback to file-based
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
-# ... write to file as in Option A
-```
+Since we use `http` type with a specific URL, identification is easy: any hook with `url` containing `127.0.0.1:7878` is ours. No command-path matching needed.
 
 ## Safely Injecting Hooks
 
@@ -232,18 +171,17 @@ Termaude needs to add hooks to `~/.claude/settings.json` without:
 
 ### Identification Strategy
 
-No `id` or `name` field exists on hooks. Identify Termaude hooks by the command path:
+Identify Termaude hooks by `url` field containing `127.0.0.1:7878`:
 
 ```json
 {
-  "type": "command",
-  "command": "~/.termaude/hooks/state-reporter.sh",
-  "timeout": 10,
-  "async": true
+  "type": "http",
+  "url": "http://127.0.0.1:7878/hook",
+  "timeout": 5
 }
 ```
 
-Any hook whose `command` contains `termaude` or starts with `~/.termaude/` is ours.
+Any hook with `type: "http"` and `url` containing `127.0.0.1:7878` is ours.
 
 ### Injection Algorithm
 
@@ -251,9 +189,9 @@ Any hook whose `command` contains `termaude` or starts with `~/.termaude/` is ou
 1. Read ~/.claude/settings.json (create {} if missing)
 2. Parse as JSON — abort on parse failure (don't touch corrupt files)
 3. Backup to ~/.claude/settings.json.bak.{timestamp}
-4. For each event we need (UserPromptSubmit, PreToolUse, Stop, Notification, StopFailure, SessionEnd):
+4. For each event we need (UserPromptSubmit, PreToolUse, Stop, Notification x2, StopFailure, SessionEnd, SessionStart):
    a. Get hooks[event] array (create if missing)
-   b. Scan for existing Termaude entry (command contains "termaude")
+   b. Scan for existing Termaude entry (hook url contains "127.0.0.1:7878")
    c. If found: update in place
    d. If not found: append new entry to the array
 5. Atomic write: write to tempfile, rename over original
@@ -265,7 +203,7 @@ Any hook whose `command` contains `termaude` or starts with `~/.termaude/` is ou
 ```
 1. Read ~/.claude/settings.json
 2. For each event type in hooks:
-   a. Filter out entries where any hook command contains "termaude"
+   a. Filter out entries where any hook url contains "127.0.0.1:7878"
    b. Remove empty arrays
 3. Atomic write
 ```
@@ -283,7 +221,7 @@ Any hook whose `command` contains `termaude` or starts with `~/.termaude/` is ou
 
 Evidence is mixed on whether Claude Code watches the settings file during a running session. To be safe: hooks should be injected before the Claude session starts, or the user should be advised to restart their session after hook setup.
 
-## What Termaude Hooks Would Look Like
+## What Termaude Hooks Look Like in settings.json
 
 ```json
 {
@@ -291,62 +229,74 @@ Evidence is mixed on whether Claude Code watches the settings file during a runn
     "UserPromptSubmit": [{
       "matcher": "",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }],
     "PreToolUse": [{
       "matcher": ".*",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }],
     "Stop": [{
       "matcher": "",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }],
     "Notification": [{
-      "matcher": "idle_prompt|permission_prompt",
+      "matcher": "idle_prompt",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
+      }]
+    }],
+    "Notification": [{
+      "matcher": "permission_prompt",
+      "hooks": [{
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }],
     "StopFailure": [{
       "matcher": "",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }],
     "SessionEnd": [{
       "matcher": "",
       "hooks": [{
-        "type": "command",
-        "command": "~/.termaude/hooks/state-reporter.sh",
-        "timeout": 5,
-        "async": true
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
+      }]
+    }],
+    "SessionStart": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "http",
+        "url": "http://127.0.0.1:7878/hook",
+        "timeout": 5
       }]
     }]
   }
 }
 ```
 
-All hooks use the same script. The script reads `hook_event_name` from stdin JSON to determine the state. All are `async: true` so they don't slow down Claude.
+Note: Notification has two separate entries (idle_prompt and permission_prompt) since we need to distinguish them. All hooks use the same URL — Termaude's HTTP server parses `hook_event_name` from the POST body to determine the state.
+
+No `async` field needed for `http` type — HTTP hooks are non-blocking by default. The full event JSON (including `session_id`, `hook_event_name`, tool info, etc.) is POSTed as the request body.
 
 ## Product Feature: What This Enables
 
@@ -479,19 +429,19 @@ Dismissing remembers the choice (stored in app settings). The user can always in
 
 ## Implementation Order
 
-1. **Write the state-reporter.sh script** — pure bash, reads stdin JSON, writes state files
-2. **Build hook injection in Rust** — safe read-modify-write with locking and backups
+1. **Start HTTP server in Rust backend** — listen on `127.0.0.1:7878`, parse POST body, emit events to frontend
+2. **Build hook injection in Rust** — safe read-modify-write of `~/.claude/settings.json` with locking and backups
 3. **Add Tauri commands** — `install_hooks`, `uninstall_hooks`, `check_hooks_status`
-4. **Extend quick-switch** — `>` prefix switches to command mode, wire up install/uninstall
-5. **Watch state files from frontend** — Tauri file watcher or polling, update session store
-6. **Update card UI** — new status colors, "working"/"waiting"/"permission" labels
+4. **Map hook events to session state** — receive events from HTTP server, match `session_id` to Termaude sessions, update store
+5. **Extend quick-switch** — `>` prefix switches to command mode, wire up install/uninstall/rescan
+6. **Update card UI** — new status states (working, waiting, permission), new colors, labels
 7. **First-run prompt** — check hook status on launch, show install banner if missing
 8. **Title bar status** — show "hooks active" / "hooks not installed"
-9. **HTTP server (v2)** — for instant state updates without polling
 
-## Open Questions
+## Decisions Made
 
-- **Notification matcher**: Can `idle_prompt|permission_prompt` be a single matcher entry, or do we need two separate entries? The docs show regex-style matchers but examples are single values.
-- **async behavior**: Do `async: true` hooks run in a fire-and-forget manner, or does Claude wait for them with a timeout? Need to verify this doesn't add latency to Claude's response loop.
-- **Multiple Claude sessions**: If the user has 5 Claude sessions, all write to different state files (keyed by session UUID). Termaude must match Claude session UUIDs to its own session registry.
-- **Hook setup timing**: If hooks are added while a Claude session is already running, does it pick them up? Or must the session be restarted?
+- **Notification matcher**: Two separate entries (idle_prompt and permission_prompt) for safety
+- **HTTP hooks**: `http` type hooks are non-blocking by default, 5s timeout is sufficient
+- **Session UUID matching**: Claude receives `--session-id <uuid>` from Termaude, hook events include that same UUID in `session_id` field — direct match to Termaude's `claudeSessionId`
+- **Hook setup timing**: Advise user to restart running Claude sessions after hook install. New sessions pick them up automatically.
+- **Architecture**: Direct HTTP, no shell scripts, no state files. Termaude's Rust backend is the hook server.

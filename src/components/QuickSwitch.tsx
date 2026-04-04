@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { type Session, setActiveSession, useSessions } from "../store/sessions";
 
@@ -8,19 +9,28 @@ interface QuickSwitchProps {
 
 const STATUS_ICONS: Record<string, string> = {
   running: "●",
-  idle: "○",
+  idle: "●",
+  permission: "●",
   closed: "○",
-  exited: "✓",
+  exited: "○",
   error: "●",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  running: "text-[#34d399]",
-  idle: "text-[#555555]",
-  closed: "text-[#555555]",
-  exited: "text-[#34d399]",
-  error: "text-[#f87171]",
+  running: "text-[#22c55e]",
+  idle: "text-[#e8e8e8]",
+  permission: "text-[#f59e0b]",
+  closed: "text-[#444444]",
+  exited: "text-[#444444]",
+  error: "text-[#ef4444]",
 };
+
+interface Command {
+  id: string;
+  name: string;
+  description: string;
+  action: () => Promise<void>;
+}
 
 function matchesQuery(session: Session, query: string): boolean {
   const q = query.toLowerCase();
@@ -31,32 +41,96 @@ function matchesQuery(session: Session, query: string): boolean {
   );
 }
 
+function matchesCommand(cmd: Command, query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    cmd.name.toLowerCase().includes(q) ||
+    cmd.description.toLowerCase().includes(q)
+  );
+}
+
 export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = query
-    ? sessions.filter((s) => matchesQuery(s, query))
-    : sessions;
+  const isCommandMode = query.startsWith(">");
+  const commandQuery = isCommandMode ? query.slice(1).trim() : "";
 
-  // Reset state when opening
+  const commands: Command[] = [
+    {
+      id: "install-hooks",
+      name: "Install Claude Hooks",
+      description: "Set up real-time session state tracking",
+      action: async () => {
+        const result = await invoke<string>("install_hooks");
+        setFeedback(result);
+        setTimeout(() => {
+          setFeedback(null);
+          onClose();
+        }, 2000);
+      },
+    },
+    {
+      id: "uninstall-hooks",
+      name: "Uninstall Claude Hooks",
+      description: "Remove Termaude hooks from Claude",
+      action: async () => {
+        const result = await invoke<string>("uninstall_hooks");
+        setFeedback(result);
+        setTimeout(() => {
+          setFeedback(null);
+          onClose();
+        }, 2000);
+      },
+    },
+    {
+      id: "rescan-projects",
+      name: "Rescan Projects",
+      description: "Refresh the project directory index",
+      action: async () => {
+        await invoke("scan_projects");
+        setFeedback("Projects rescanned.");
+        setTimeout(() => {
+          setFeedback(null);
+          onClose();
+        }, 1500);
+      },
+    },
+  ];
+
+  const filteredSessions = isCommandMode
+    ? []
+    : query
+      ? sessions.filter((s) => matchesQuery(s, query))
+      : sessions;
+
+  const filteredCommands = isCommandMode
+    ? commandQuery
+      ? commands.filter((c) => matchesCommand(c, commandQuery))
+      : commands
+    : [];
+
+  const totalItems = isCommandMode
+    ? filteredCommands.length
+    : filteredSessions.length;
+
   useEffect(() => {
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      // Focus after render
+      setFeedback(null);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
 
-  // Clamp selected index when filtered list changes
   useEffect(() => {
-    if (selectedIndex >= filtered.length) {
-      setSelectedIndex(Math.max(0, filtered.length - 1));
+    if (selectedIndex >= totalItems) {
+      setSelectedIndex(Math.max(0, totalItems - 1));
     }
-  }, [filtered.length, selectedIndex]);
+  }, [totalItems, selectedIndex]);
 
   function selectSession(session: Session) {
     setActiveSession(session.id);
@@ -64,10 +138,12 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    if (feedback) return; // Ignore keys while showing feedback
+
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, totalItems - 1));
         break;
       case "ArrowUp":
         e.preventDefault();
@@ -75,8 +151,10 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
         break;
       case "Enter":
         e.preventDefault();
-        if (filtered[selectedIndex]) {
-          selectSession(filtered[selectedIndex]);
+        if (isCommandMode && filteredCommands[selectedIndex]) {
+          filteredCommands[selectedIndex].action();
+        } else if (!isCommandMode && filteredSessions[selectedIndex]) {
+          selectSession(filteredSessions[selectedIndex]);
         }
         break;
       case "Escape":
@@ -111,43 +189,77 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
             onChange={(e) => {
               setQuery(e.target.value);
               setSelectedIndex(0);
+              setFeedback(null);
             }}
-            placeholder="Switch session..."
+            placeholder={
+              isCommandMode
+                ? "Type a command..."
+                : "Switch session or > for commands..."
+            }
             className="flex-1 bg-transparent text-[14px] text-[#e8e8e8] outline-none placeholder:text-[#555555]"
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto py-1">
-          {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-[13px] text-[#555555]">
-              No sessions found
-            </div>
-          ) : (
-            filtered.map((session, index) => (
-              <button
-                key={session.id}
-                type="button"
-                onClick={() => selectSession(session)}
-                className={`w-full text-left px-4 py-2 flex items-center gap-3 transition-colors ${
-                  index === selectedIndex
-                    ? "bg-[#252525]"
-                    : "hover:bg-[#1f1f1f]"
-                }`}
-              >
-                <span
-                  className={`text-[10px] ${STATUS_COLORS[session.status] ?? "text-[#555555]"}`}
+
+        {feedback ? (
+          <div className="px-4 py-3 text-[13px] text-[#34d399]">{feedback}</div>
+        ) : (
+          <div className="max-h-[300px] overflow-y-auto py-1">
+            {isCommandMode ? (
+              filteredCommands.length === 0 ? (
+                <div className="px-4 py-3 text-[13px] text-[#555555]">
+                  No commands found
+                </div>
+              ) : (
+                filteredCommands.map((cmd, index) => (
+                  <button
+                    key={cmd.id}
+                    type="button"
+                    onClick={() => cmd.action()}
+                    className={`w-full text-left px-4 py-2 transition-colors duration-100 ${
+                      index === selectedIndex
+                        ? "bg-[#252525]"
+                        : "hover:bg-[#1f1f1f]"
+                    }`}
+                  >
+                    <div className="text-[13px] text-[#e8e8e8]">{cmd.name}</div>
+                    <div className="text-[11px] text-[#555555]">
+                      {cmd.description}
+                    </div>
+                  </button>
+                ))
+              )
+            ) : filteredSessions.length === 0 ? (
+              <div className="px-4 py-3 text-[13px] text-[#555555]">
+                No sessions found
+              </div>
+            ) : (
+              filteredSessions.map((session, index) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => selectSession(session)}
+                  className={`w-full text-left px-4 py-2 flex items-center gap-3 transition-colors duration-100 ${
+                    index === selectedIndex
+                      ? "bg-[#252525]"
+                      : "hover:bg-[#1f1f1f]"
+                  }`}
                 >
-                  {STATUS_ICONS[session.status] ?? "○"}
-                </span>
-                <span className="text-[13px] text-[#e8e8e8] flex-1">
-                  {session.name}
-                </span>
-                <span className="text-[11px] text-[#555555]">
-                  {session.column}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
+                  <span
+                    className={`text-[10px] ${STATUS_COLORS[session.status] ?? "text-[#555555]"}`}
+                  >
+                    {STATUS_ICONS[session.status] ?? "○"}
+                  </span>
+                  <span className="text-[13px] text-[#e8e8e8] flex-1">
+                    {session.name}
+                  </span>
+                  <span className="text-[11px] text-[#555555]">
+                    {session.column}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

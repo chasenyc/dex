@@ -8,11 +8,12 @@ interface CardProps {
 }
 
 const STATUS_DOTS: Record<string, { color: string; label: string }> = {
-  running: { color: "bg-[#34d399]", label: "running" },
-  idle: { color: "bg-[#555555]", label: "idle" },
-  closed: { color: "bg-[#555555]", label: "closed — double-click to resume" },
-  exited: { color: "bg-[#34d399]", label: "exited" },
-  error: { color: "bg-[#f87171]", label: "error" },
+  running: { color: "bg-[#22c55e]", label: "working" },
+  idle: { color: "bg-[#e8e8e8]", label: "waiting for input" },
+  permission: { color: "bg-[#f59e0b]", label: "needs permission" },
+  closed: { color: "bg-[#444444]", label: "closed — double-click to resume" },
+  exited: { color: "bg-[#444444]", label: "exited" },
+  error: { color: "bg-[#ef4444]", label: "error" },
 };
 
 function timeAgo(timestamp: number): string {

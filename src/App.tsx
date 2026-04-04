@@ -8,6 +8,7 @@ import {
   loadRegistry,
   resumeSession,
   setActiveSession,
+  startHookListener,
   useActiveSession,
   useRegistryLoaded,
   useSessions,
@@ -25,6 +26,11 @@ export function App() {
   // Load persisted sessions on startup
   useEffect(() => {
     loadRegistry();
+  }, []);
+
+  // Start hook state listener once
+  useEffect(() => {
+    startHookListener();
   }, []);
 
   const openSession = useCallback(
@@ -96,7 +102,10 @@ export function App() {
   }, [handleKeyDown]);
 
   const runningSessions = sessions.filter(
-    (s) => s.status === "running" || s.status === "idle",
+    (s) =>
+      s.status === "running" ||
+      s.status === "idle" ||
+      s.status === "permission",
   );
 
   if (!loaded) {
@@ -141,7 +150,12 @@ export function App() {
 
         <div className="flex gap-1">
           {sessions
-            .filter((s) => s.status === "running" || s.status === "idle")
+            .filter(
+              (s) =>
+                s.status === "running" ||
+                s.status === "idle" ||
+                s.status === "permission",
+            )
             .map((session) => (
               <button
                 key={session.id}
