@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
 import { updateSessionStatus } from "../store/sessions";
@@ -30,7 +31,8 @@ export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
       fontSize: 12,
       fontWeight: "400",
       fontWeightBold: "600",
-      lineHeight: 1.0,
+      customGlyphs: true,
+      lineHeight: 1,
       letterSpacing: 0,
       theme: {
         background: "#0f0f0f",
@@ -61,6 +63,14 @@ export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
     term.loadAddon(fitAddon);
     term.loadAddon(clipboardAddon);
     term.open(container);
+
+    // WebGL renderer has fewer subpixel rounding artifacts
+    try {
+      term.loadAddon(new WebglAddon());
+    } catch {
+      // Falls back to canvas renderer if WebGL unavailable
+    }
+
     fitAddon.fit();
 
     termRef.current = term;
