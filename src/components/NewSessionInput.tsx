@@ -1,24 +1,53 @@
 import { useRef, useState } from "react";
-import { addSession } from "../store/sessions";
+import { addSession, type SessionType } from "../store/sessions";
 
 interface NewSessionInputProps {
   column: string;
   onCreated?: (sessionId: string) => void;
 }
 
-function parseInput(raw: string): { name: string; command?: string } {
+interface ParsedInput {
+  name: string;
+  cwd: string;
+  type: SessionType;
+}
+
+function parseInput(raw: string): ParsedInput {
   const trimmed = raw.trim();
 
-  // #c prefix → Claude Code session
-  if (trimmed.startsWith("#c")) {
-    const rest = trimmed.slice(2).trim();
-    if (rest) {
-      return { name: rest, command: `claude -n "${rest}"` };
-    }
-    return { name: "claude", command: "claude" };
+  // ! prefix → raw shell
+  if (trimmed.startsWith("!")) {
+    const rest = trimmed.slice(1).trim();
+    return parseNameAndCwd(rest, "shell", "shell");
   }
 
-  return { name: trimmed || "untitled" };
+  // Default → Claude Code
+  return parseNameAndCwd(trimmed, "claude", "untitled");
+}
+
+function parseNameAndCwd(
+  input: string,
+  type: SessionType,
+  defaultName: string,
+): ParsedInput {
+  if (!input) {
+    return { name: defaultName, cwd: "~", type };
+  }
+
+  // Check if the entire input is a path
+  if (input.startsWith("~/") || input.startsWith("/")) {
+    const name = input.split("/").filter(Boolean).pop() ?? defaultName;
+    return { name, cwd: input, type };
+  }
+
+  // Check for "name /path" or "name ~/path" pattern
+  const spacePathMatch = input.match(/^(\S+)\s+(~?\/.*)$/);
+  if (spacePathMatch) {
+    return { name: spacePathMatch[1], cwd: spacePathMatch[2], type };
+  }
+
+  // Just a name
+  return { name: input, cwd: "~", type };
 }
 
 export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
@@ -32,8 +61,8 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
       return;
     }
 
-    const { name, command } = parseInput(value);
-    const session = addSession(name, "~", column, command);
+    const { name, cwd, type } = parseInput(value);
+    const session = addSession({ name, cwd, column, type });
     setValue("");
     setEditing(false);
     onCreated?.(session.id);
@@ -61,6 +90,9 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -72,7 +104,7 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
           }
         }}
         onBlur={handleSubmit}
-        placeholder="session name or #c for claude..."
+        placeholder="name [~/path] or ! for shell..."
         className="w-full bg-[#1c1c1c] text-[12px] text-[#e8e8e8] rounded px-2 py-1.5 outline-none border border-[#7c6aef]/30 focus:border-[#7c6aef]/60 placeholder:text-[#333333]"
       />
     </div>

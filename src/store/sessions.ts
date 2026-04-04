@@ -1,21 +1,21 @@
 import { useSyncExternalStore } from "react";
 
-export type SessionStatus =
-  | "running"
-  | "idle"
-  | "exited"
-  | "error"
-  | "disconnected";
+export type SessionStatus = "running" | "idle" | "exited" | "error" | "closed";
+
+export type SessionType = "claude" | "shell";
 
 export interface Session {
   id: string;
   name: string;
   cwd: string;
   column: string;
-  command?: string;
+  type: SessionType;
+  claudeSessionId?: string;
   status: SessionStatus;
   createdAt: number;
   lastActivity: number;
+  /** Tracks how many times the PTY has been spawned (create + resumes) */
+  generation: number;
 }
 
 interface SessionStore {
@@ -49,22 +49,29 @@ function getSnapshot(): SessionStore {
   return store;
 }
 
-export function addSession(
-  name: string,
-  cwd: string,
-  column?: string,
-  command?: string,
-): Session {
+function generateUUID(): string {
+  return crypto.randomUUID();
+}
+
+export function addSession(opts: {
+  name: string;
+  cwd: string;
+  column?: string;
+  type?: SessionType;
+}): Session {
   const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const sessionType = opts.type ?? "claude";
   const session: Session = {
     id,
-    name,
-    cwd,
-    column: column ?? "Active",
-    command,
+    name: opts.name,
+    cwd: opts.cwd,
+    column: opts.column ?? "Active",
+    type: sessionType,
+    claudeSessionId: sessionType === "claude" ? generateUUID() : undefined,
     status: "running",
     createdAt: Date.now(),
     lastActivity: Date.now(),
+    generation: 1,
   };
 
   const next = new Map(store.sessions);
@@ -72,6 +79,20 @@ export function addSession(
   store = { ...store, sessions: next, activeSessionId: id };
   emitChange();
   return session;
+}
+
+export function resumeSession(id: string) {
+  const session = store.sessions.get(id);
+  if (!session) return;
+  const next = new Map(store.sessions);
+  next.set(id, {
+    ...session,
+    status: "running",
+    generation: session.generation + 1,
+    lastActivity: Date.now(),
+  });
+  store = { ...store, sessions: next, activeSessionId: id };
+  emitChange();
 }
 
 export function removeSession(id: string) {

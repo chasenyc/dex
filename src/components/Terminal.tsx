@@ -13,9 +13,16 @@ interface TerminalProps {
   cwd?: string;
   command?: string;
   visible: boolean;
+  onExit?: () => void;
 }
 
-export function Terminal({ sessionId, cwd, command, visible }: TerminalProps) {
+export function Terminal({
+  sessionId,
+  cwd,
+  command,
+  visible,
+  onExit,
+}: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -97,8 +104,8 @@ export function Terminal({ sessionId, cwd, command, visible }: TerminalProps) {
     });
 
     const exitUnlisten = listen(`pty-exit-${ptyId}`, () => {
-      term.writeln("\r\n[Process exited]");
-      updateSessionStatus(sessionId, "exited");
+      updateSessionStatus(sessionId, "closed");
+      onExit?.();
     });
 
     const onDataDisposable = term.onData((data: string) => {
@@ -127,7 +134,7 @@ export function Terminal({ sessionId, cwd, command, visible }: TerminalProps) {
       invoke("close_session", { id: ptyId }).catch(() => {});
       term.dispose();
     };
-  }, [sessionId, cwd, command]);
+  }, [sessionId, cwd, command, onExit]);
 
   // Re-fit when visibility changes
   useEffect(() => {

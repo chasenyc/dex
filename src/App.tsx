@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Board } from "./components/Board";
 import { QuickSwitch } from "./components/QuickSwitch";
 import { Terminal } from "./components/Terminal";
+import { buildCommand } from "./lib/commands";
 import {
   addSession,
+  resumeSession,
   setActiveSession,
   useActiveSession,
   useSessions,
@@ -17,16 +19,20 @@ export function App() {
   const [view, setView] = useState<View>("board");
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
 
-  useEffect(() => {
-    if (sessions.length === 0) {
-      addSession("main", "~");
-    }
-  }, [sessions.length]);
-
-  const openSession = useCallback((id: string) => {
-    setActiveSession(id);
-    setView("focus");
-  }, []);
+  const openSession = useCallback(
+    (id: string) => {
+      const session = sessions.find((s) => s.id === id);
+      if (
+        session &&
+        (session.status === "closed" || session.status === "exited")
+      ) {
+        resumeSession(id);
+      }
+      setActiveSession(id);
+      setView("focus");
+    },
+    [sessions],
+  );
 
   const goToBoard = useCallback(() => {
     setView("board");
@@ -36,36 +42,26 @@ export function App() {
     (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
 
-      // Cmd+K — quick switch
       if (mod && e.key === "k") {
         e.preventDefault();
         setQuickSwitchOpen((prev) => !prev);
         return;
       }
 
-      // Cmd+N — new session
       if (mod && e.key === "n") {
         e.preventDefault();
         const name = `session-${sessions.length + 1}`;
-        const session = addSession(name, "~");
+        const session = addSession({ name, cwd: "~" });
         openSession(session.id);
         return;
       }
 
-      // Escape — back to board (only in focus view, when quick switch is closed)
-      if (e.key === "Escape" && view === "focus" && !quickSwitchOpen) {
-        // Don't steal Escape from terminal apps — use Cmd+Escape instead
-        return;
-      }
-
-      // Cmd+B — toggle board
       if (mod && e.key === "b") {
         e.preventDefault();
         setView((v) => (v === "board" ? "focus" : "board"));
         return;
       }
 
-      // Cmd+] — next session
       if (mod && e.key === "]") {
         e.preventDefault();
         if (sessions.length < 2 || !activeSession) return;
@@ -75,7 +71,6 @@ export function App() {
         return;
       }
 
-      // Cmd+[ — previous session
       if (mod && e.key === "[") {
         e.preventDefault();
         if (sessions.length < 2 || !activeSession) return;
@@ -84,7 +79,7 @@ export function App() {
         openSession(prev.id);
       }
     },
-    [sessions, activeSession, view, quickSwitchOpen, openSession],
+    [sessions, activeSession, openSession],
   );
 
   useEffect(() => {
@@ -92,9 +87,13 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Only render terminals for sessions that are running
+  const runningSessions = sessions.filter(
+    (s) => s.status === "running" || s.status === "idle",
+  );
+
   return (
     <div className="h-screen w-screen bg-[#0f0f0f] overflow-hidden flex flex-col">
-      {/* Title bar */}
       <div
         data-tauri-drag-region
         className="h-8 shrink-0 flex items-center px-4 gap-2"
@@ -113,25 +112,27 @@ export function App() {
         )}
 
         <div className="flex gap-1">
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              type="button"
-              onClick={() => openSession(session.id)}
-              className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                activeSession?.id === session.id && view === "focus"
-                  ? "bg-[#252525] text-[#e8e8e8]"
-                  : "text-[#555555] hover:text-[#888888]"
-              }`}
-            >
-              {session.name}
-            </button>
-          ))}
+          {sessions
+            .filter((s) => s.status === "running" || s.status === "idle")
+            .map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => openSession(session.id)}
+                className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+                  activeSession?.id === session.id && view === "focus"
+                    ? "bg-[#252525] text-[#e8e8e8]"
+                    : "text-[#555555] hover:text-[#888888]"
+                }`}
+              >
+                {session.name}
+              </button>
+            ))}
           <button
             type="button"
             onClick={() => {
               const name = `session-${sessions.length + 1}`;
-              const session = addSession(name, "~");
+              const session = addSession({ name, cwd: "~" });
               openSession(session.id);
             }}
             className="text-[11px] px-2 py-0.5 text-[#555555] hover:text-[#888888] transition-colors"
@@ -141,9 +142,7 @@ export function App() {
         </div>
       </div>
 
-      {/* Content area */}
       <div className="flex-1 min-h-0 relative">
-        {/* Board view */}
         <div
           className="absolute inset-0 flex flex-col transition-opacity duration-200"
           style={{
@@ -154,7 +153,6 @@ export function App() {
           <Board onOpenSession={openSession} />
         </div>
 
-        {/* Focus view — all terminals stacked, only active visible */}
         <div
           className="absolute inset-0 transition-opacity duration-200"
           style={{
@@ -162,9 +160,9 @@ export function App() {
             pointerEvents: view === "focus" ? "auto" : "none",
           }}
         >
-          {sessions.map((session) => (
+          {runningSessions.map((session) => (
             <div
-              key={session.id}
+              key={`${session.id}-${session.generation}`}
               className="absolute inset-0"
               style={{
                 display:
@@ -176,8 +174,9 @@ export function App() {
               <Terminal
                 sessionId={session.id}
                 cwd={session.cwd}
-                command={session.command}
+                command={buildCommand(session, session.generation > 1)}
                 visible={activeSession?.id === session.id && view === "focus"}
+                onExit={goToBoard}
               />
             </div>
           ))}
@@ -188,7 +187,6 @@ export function App() {
         open={quickSwitchOpen}
         onClose={() => {
           setQuickSwitchOpen(false);
-          // If a session was selected, switch to focus view
           if (activeSession) setView("focus");
         }}
       />

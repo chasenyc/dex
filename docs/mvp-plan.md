@@ -248,31 +248,32 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 - **Milestone: multiple terminals you can switch between** ✅
 
 ### Phase 3: Board View
-- [ ] Kanban board layout with columns
-- [ ] Card component showing session name, directory, status indicator
+- [x] Kanban board layout with columns *(Backlog, Active, Done)*
+- [x] Card component showing session name, directory, status indicator
 - [ ] Card preview — render last 2-3 lines from xterm.js buffer
-- [ ] Drag-and-drop cards between columns (dnd-kit)
+- [x] Drag-and-drop cards between columns (dnd-kit)
 - [ ] Drag-and-drop column reordering
 - [ ] Add/remove/rename columns
-- [ ] Create new session from board
-- **Milestone: the board exists and cards reflect real sessions**
+- [x] Create new session from board *(inline input, pinned to column bottom)*
+- [x] `#c` prefix starts Claude Code session *(e.g. `#c test` → `claude -n "test"`)*
+- **Milestone: the board exists and cards reflect real sessions** ✅
 
 ### Phase 4: View Transitions
-- [ ] Toggle shortcut between board and focus view
-- [ ] Click card to enter focus view
-- [ ] Smooth transition animation (slide/fade, 200-300ms)
-- [ ] xterm.js instance reattachment (no flicker on view switch)
-- [ ] Status indicators update live on cards (idle, running, error, done)
-- [ ] "← Board" button in focus view header
-- **Milestone: the core loop feels good — board, focus, switch, repeat**
+- [x] Toggle shortcut between board and focus view *(`Cmd+B`)*
+- [x] Click card to enter focus view *(double-click)*
+- [x] Smooth transition animation *(opacity fade, 200ms)*
+- [x] xterm.js instance reattachment *(no flicker — terminals stay alive in DOM)*
+- [x] Status indicators update live on cards *(pulse for running, colors for states)*
+- [x] "← Board" button in focus view header
+- **Milestone: the core loop feels good — board, focus, switch, repeat** ✅
 
 ### Phase 5: Polish & Persistence
 - [ ] Session layout persistence (save columns + card positions to JSON)
 - [ ] Restore layout on app restart (sessions show as disconnected)
 - [ ] Restart session from disconnected state
-- [ ] Keyboard shortcuts (new session, next/prev, close, toggle view)
+- [x] Keyboard shortcuts *(Cmd+N new, Cmd+[/] prev/next, Cmd+K switch, Cmd+B board)*
 - [ ] Visual polish pass — shadows, hover states, animations, spacing
-- [ ] Card status dot animations (pulse for active)
+- [x] Card status dot animations (pulse for active)
 - [ ] Edge cases — session process dies, resize during drag, rapid switching
 - **Milestone: MVP complete — daily-drivable**
 

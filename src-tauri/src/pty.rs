@@ -78,7 +78,18 @@ impl PtyManager {
             CommandBuilder::new_default_prog()
         };
         if let Some(dir) = cwd {
-            cmd.cwd(dir);
+            let expanded = if dir.starts_with("~/") {
+                if let Ok(home) = std::env::var("HOME") {
+                    format!("{}{}", home, &dir[1..])
+                } else {
+                    dir.to_string()
+                }
+            } else if dir == "~" {
+                std::env::var("HOME").unwrap_or_else(|_| dir.to_string())
+            } else {
+                dir.to_string()
+            };
+            cmd.cwd(expanded);
         }
 
         pair.slave

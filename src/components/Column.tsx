@@ -44,6 +44,8 @@ export function Column({ name, onOpenSession }: ColumnProps) {
             <Card key={session.id} session={session} onOpen={onOpenSession} />
           ))}
         </SortableContext>
+      </div>
+      <div className="px-2 pb-2 shrink-0">
         <NewSessionInput column={name} onCreated={onOpenSession} />
       </div>
     </div>

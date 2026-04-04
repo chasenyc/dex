@@ -9,17 +9,17 @@ interface QuickSwitchProps {
 const STATUS_ICONS: Record<string, string> = {
   running: "●",
   idle: "○",
+  closed: "○",
   exited: "✓",
   error: "●",
-  disconnected: "○",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   running: "text-[#34d399]",
   idle: "text-[#555555]",
+  closed: "text-[#555555]",
   exited: "text-[#34d399]",
   error: "text-[#f87171]",
-  disconnected: "text-[#555555]",
 };
 
 function matchesQuery(session: Session, query: string): boolean {
