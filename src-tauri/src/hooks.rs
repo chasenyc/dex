@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
 
-const HOOK_URL: &str = "http://127.0.0.1:7878/hook";
+const HOOK_COMMAND: &str = "cat | curl -s -o /dev/null -X POST -H 'Content-Type: application/json' -d @- http://127.0.0.1:7878/hook 2>/dev/null; exit 0";
 
 fn claude_settings_path() -> Result<PathBuf, String> {
     let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
@@ -18,8 +18,8 @@ fn make_hook_entry(matcher: &str) -> Value {
     json!({
         "matcher": matcher,
         "hooks": [{
-            "type": "http",
-            "url": HOOK_URL,
+            "type": "command",
+            "command": HOOK_COMMAND,
             "timeout": 5
         }]
     })
@@ -28,9 +28,16 @@ fn make_hook_entry(matcher: &str) -> Value {
 fn is_termaude_hook(entry: &Value) -> bool {
     if let Some(hooks) = entry.get("hooks").and_then(|h| h.as_array()) {
         hooks.iter().any(|h| {
-            h.get("url")
+            // Match on either the command string or the old HTTP URL
+            let has_command = h
+                .get("command")
+                .and_then(|c| c.as_str())
+                .is_some_and(|c| c.contains("127.0.0.1:7878"));
+            let has_url = h
+                .get("url")
                 .and_then(|u| u.as_str())
-                .is_some_and(|u| u.contains("127.0.0.1:7878"))
+                .is_some_and(|u| u.contains("127.0.0.1:7878"));
+            has_command || has_url
         })
     } else {
         false

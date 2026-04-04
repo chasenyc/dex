@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts", "!!**/dist", "!!**/node_modules", "!!**/src-tauri"]
+    "includes": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "*.config.ts",
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!**/src-tauri"
+    ]
   },
   "formatter": {
     "enabled": true,

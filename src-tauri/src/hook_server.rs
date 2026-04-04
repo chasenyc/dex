@@ -11,6 +11,8 @@ pub struct HookEvent {
     pub event_name: Option<String>,
     pub tool_name: Option<String>,
     pub notification_type: Option<String>,
+    pub last_assistant_message: Option<String>,
+    pub transcript_path: Option<String>,
     pub cwd: Option<String>,
 }
 
@@ -19,6 +21,7 @@ pub struct StateUpdate {
     pub session_id: String,
     pub state: String,
     pub event: String,
+    pub preview_lines: Vec<String>,
     pub timestamp: u64,
 }
 
@@ -27,13 +30,10 @@ fn map_event_to_state(event: &HookEvent) -> Option<&'static str> {
     match event_name {
         "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "SessionStart" => Some("working"),
         "Stop" => Some("waiting"),
-        "Notification" => {
-            // Distinguish permission_prompt from idle_prompt
-            match event.notification_type.as_deref() {
-                Some("permission_prompt") => Some("permission"),
-                _ => Some("waiting"),
-            }
-        }
+        "Notification" => match event.notification_type.as_deref() {
+            Some("permission_prompt") => Some("permission"),
+            _ => Some("waiting"),
+        },
         "PermissionRequest" => Some("permission"),
         "StopFailure" => Some("error"),
         "SessionEnd" => Some("ended"),
@@ -53,9 +53,17 @@ fn now_millis() -> u64 {
 /// Emits `hook-state-update` events to the frontend via Tauri.
 pub fn start(app: AppHandle) {
     thread::spawn(move || {
-        let Ok(server) = tiny_http::Server::http(LISTEN_ADDR) else {
-            log::error!("Failed to start hook server on {LISTEN_ADDR}");
-            return;
+        // Try to bind, retry once after 500ms if port is busy (old process exiting)
+        let server = if let Ok(s) = tiny_http::Server::http(LISTEN_ADDR) {
+            s
+        } else {
+            log::warn!("Port {LISTEN_ADDR} busy, retrying in 500ms...");
+            thread::sleep(std::time::Duration::from_millis(500));
+            let Ok(s) = tiny_http::Server::http(LISTEN_ADDR) else {
+                log::error!("Failed to start hook server on {LISTEN_ADDR}");
+                return;
+            };
+            s
         };
 
         log::info!("Hook server listening on {LISTEN_ADDR}");
@@ -78,19 +86,29 @@ pub fn start(app: AppHandle) {
             }
 
             if let Ok(event) = serde_json::from_str::<HookEvent>(&body) {
-                log::info!(
-                    "Hook event: session={} event={} body={}",
-                    event.session_id.as_deref().unwrap_or("none"),
-                    event.event_name.as_deref().unwrap_or("none"),
-                    &body[..body.len().min(500)]
-                );
                 if let (Some(session_id), Some(event_name)) = (&event.session_id, &event.event_name)
                 {
                     if let Some(state) = map_event_to_state(&event) {
+                        // Extract preview from last_assistant_message in Stop events
+                        let preview_lines = if let Some(msg) = &event.last_assistant_message {
+                            msg.lines()
+                                .rev()
+                                .filter(|l| !l.trim().is_empty())
+                                .take(3)
+                                .collect::<Vec<_>>()
+                                .into_iter()
+                                .rev()
+                                .map(|l| l.trim().to_string())
+                                .collect()
+                        } else {
+                            Vec::new()
+                        };
+
                         let update = StateUpdate {
                             session_id: session_id.clone(),
                             state: state.to_string(),
                             event: event_name.clone(),
+                            preview_lines,
                             timestamp: now_millis(),
                         };
                         let _ = app.emit("hook-state-update", &update);

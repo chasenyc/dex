@@ -342,41 +342,23 @@ export function startHookListener() {
     session_id: string;
     state: string;
     event: string;
+    preview_lines: string[];
   }>("hook-state-update", (event) => {
-    const { session_id, state } = event.payload;
+    const { session_id, state, preview_lines } = event.payload;
     const status = STATUS_MAP[state];
     if (!status) return;
 
-    // Access store directly — no stale closures
+    // Match only by exact Claude session ID — ignore non-Termaude sessions
     const { sessions } = store;
 
-    // Try matching by Claude session ID
-    let match: Session | undefined;
     for (const session of sessions.values()) {
       if (session.claudeSessionId === session_id) {
-        match = session;
+        updateSessionStatus(session.id, status);
+        if (preview_lines && preview_lines.length > 0) {
+          updatePreviewLines(session.id, preview_lines);
+        }
         break;
       }
-    }
-
-    // Fallback: single running Claude session
-    if (!match) {
-      const running: Session[] = [];
-      for (const session of sessions.values()) {
-        if (
-          session.type === "claude" &&
-          (session.status === "running" || session.status === "idle")
-        ) {
-          running.push(session);
-        }
-      }
-      if (running.length === 1) {
-        match = running[0];
-      }
-    }
-
-    if (match) {
-      updateSessionStatus(match.id, status);
     }
   });
 }

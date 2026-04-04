@@ -5,7 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
-import { updatePreviewLines, updateSessionStatus } from "../store/sessions";
+import { updateSessionStatus } from "../store/sessions";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
@@ -98,29 +98,12 @@ export function Terminal({
       updateSessionStatus(sessionId, "error");
     });
 
-    let previewTimer: ReturnType<typeof setTimeout> | null = null;
-    function extractPreview() {
-      if (previewTimer) clearTimeout(previewTimer);
-      previewTimer = setTimeout(() => {
-        const buf = term.buffer.active;
-        const lines: string[] = [];
-        // Walk from the bottom up to find the last 3 non-empty lines
-        for (let i = buf.cursorY + buf.baseY; i >= 0 && lines.length < 3; i--) {
-          const line = buf.getLine(i)?.translateToString(true)?.trim();
-          if (line) lines.unshift(line);
-        }
-        updatePreviewLines(sessionId, lines);
-      }, 200);
-    }
-
     const outputUnlisten = listen<number[]>(`pty-output-${ptyId}`, (event) => {
       term.write(new Uint8Array(event.payload));
       updateSessionStatus(sessionId, "running");
-      extractPreview();
     });
 
     const exitUnlisten = listen(`pty-exit-${ptyId}`, () => {
-      if (previewTimer) clearTimeout(previewTimer);
       updateSessionStatus(sessionId, "closed");
       onExit?.();
     });
@@ -147,7 +130,6 @@ export function Terminal({
     window.addEventListener("resize", handleWindowResize);
 
     return () => {
-      if (previewTimer) clearTimeout(previewTimer);
       window.removeEventListener("resize", handleWindowResize);
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
