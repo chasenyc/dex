@@ -11,10 +11,11 @@ import "@xterm/xterm/css/xterm.css";
 interface TerminalProps {
   sessionId: string;
   cwd?: string;
+  command?: string;
   visible: boolean;
 }
 
-export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
+export function Terminal({ sessionId, cwd, command, visible }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -82,6 +83,7 @@ export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
     invoke("create_session", {
       id: ptyId,
       cwd,
+      command,
       cols: term.cols,
       rows: term.rows,
     }).catch((err: unknown) => {
@@ -125,7 +127,7 @@ export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
       invoke("close_session", { id: ptyId }).catch(() => {});
       term.dispose();
     };
-  }, [sessionId, cwd]);
+  }, [sessionId, cwd, command]);
 
   // Re-fit when visibility changes
   useEffect(() => {

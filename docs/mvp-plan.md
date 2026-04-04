@@ -232,18 +232,20 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 ### Phase 1: Single Terminal, Full Screen
 - [x] Full-screen terminal view with xterm.js
 - [x] Proper terminal resize handling
-- [ ] Copy/paste support
-- [ ] Basic Tauri window chrome (title bar, close/minimize/maximize)
-- [x] Terminal font configuration (hardcoded to JetBrains Mono or system monospace)
-- **Milestone: a usable single-session terminal app** *(mostly complete)*
+- [x] Copy/paste support *(xterm clipboard addon)*
+- [x] Basic Tauri window chrome *(overlay title bar with drag region)*
+- [x] Terminal font configuration *(SF Mono, 12px, lineHeight 1.0, WebGL renderer)*
+- **Milestone: a usable single-session terminal app** ✅
 
 ### Phase 2: Multiple Sessions
-- [x] Backend supports multiple simultaneous PTY sessions *(PtyManager already uses HashMap of sessions)*
-- [ ] Frontend manages multiple xterm.js instances
-- [ ] Sessions stay alive when not focused (background PTY keeps running)
-- [ ] IPC multiplexing — route output to correct session
-- [ ] Quick-switch overlay (`Cmd+K`) to jump between sessions
-- **Milestone: multiple terminals you can switch between**
+- [x] Backend supports multiple simultaneous PTY sessions *(PtyManager uses HashMap)*
+- [x] Frontend manages multiple xterm.js instances *(all kept alive in DOM)*
+- [x] Sessions stay alive when not focused *(hidden via display:none, PTY keeps running)*
+- [x] IPC multiplexing — route output to correct session *(unique ptyId per session)*
+- [x] Quick-switch overlay (`Cmd+K`) *(fuzzy search, arrow keys, enter to select)*
+- [x] Keyboard shortcuts: `Cmd+N` (new), `Cmd+[`/`Cmd+]` (prev/next)
+- [x] Session tabs in title bar
+- **Milestone: multiple terminals you can switch between** ✅
 
 ### Phase 3: Board View
 - [ ] Kanban board layout with columns

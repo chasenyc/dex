@@ -12,6 +12,7 @@ export interface Session {
   name: string;
   cwd: string;
   column: string;
+  command?: string;
   status: SessionStatus;
   createdAt: number;
   lastActivity: number;
@@ -52,6 +53,7 @@ export function addSession(
   name: string,
   cwd: string,
   column?: string,
+  command?: string,
 ): Session {
   const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const session: Session = {
@@ -59,6 +61,7 @@ export function addSession(
     name,
     cwd,
     column: column ?? "Active",
+    command,
     status: "running",
     createdAt: Date.now(),
     lastActivity: Date.now(),

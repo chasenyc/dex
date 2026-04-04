@@ -48,6 +48,7 @@ impl PtyManager {
         &self,
         id: &str,
         cwd: Option<&str>,
+        command: Option<&str>,
         cols: u16,
         rows: u16,
         app: &AppHandle,
@@ -65,7 +66,17 @@ impl PtyManager {
             .openpty(size)
             .map_err(|e| PtyError::Open(e.to_string()))?;
 
-        let mut cmd = CommandBuilder::new_default_prog();
+        let mut cmd = if let Some(shell_cmd) = command {
+            // Run the command inside the user's default shell as interactive
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            let mut c = CommandBuilder::new(shell);
+            c.arg("-i");
+            c.arg("-c");
+            c.arg(shell_cmd);
+            c
+        } else {
+            CommandBuilder::new_default_prog()
+        };
         if let Some(dir) = cwd {
             cmd.cwd(dir);
         }

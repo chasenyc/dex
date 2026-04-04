@@ -8,12 +8,13 @@ use tauri::State;
 pub fn create_session(
     id: String,
     cwd: Option<String>,
+    command: Option<String>,
     cols: u16,
     rows: u16,
     manager: State<'_, PtyManager>,
     app: tauri::AppHandle,
 ) -> Result<(), PtyError> {
-    manager.create_session(&id, cwd.as_deref(), cols, rows, &app)
+    manager.create_session(&id, cwd.as_deref(), command.as_deref(), cols, rows, &app)
 }
 
 #[tauri::command]
