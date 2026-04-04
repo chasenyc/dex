@@ -1,5 +1,6 @@
 mod commands;
 mod persistence;
+mod project_index;
 mod pty;
 
 use pty::PtyManager;
@@ -20,6 +21,8 @@ pub fn run() {
             commands::close_session,
             persistence::load_registry,
             persistence::save_registry,
+            project_index::scan_projects,
+            project_index::load_project_index,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

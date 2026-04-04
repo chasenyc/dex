@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useInferCwd } from "../hooks/useInferCwd";
 import { addSession, type SessionType } from "../store/sessions";
 
 interface NewSessionInputProps {
@@ -6,54 +7,22 @@ interface NewSessionInputProps {
   onCreated?: (sessionId: string) => void;
 }
 
-interface ParsedInput {
-  name: string;
-  cwd: string;
-  type: SessionType;
-}
-
-function parseInput(raw: string): ParsedInput {
+function parseInput(raw: string): { name: string; type: SessionType } {
   const trimmed = raw.trim();
 
-  // ! prefix → raw shell
   if (trimmed.startsWith("!")) {
-    const rest = trimmed.slice(1).trim();
-    return parseNameAndCwd(rest, "shell", "shell");
+    const name = trimmed.slice(1).trim() || "shell";
+    return { name, type: "shell" };
   }
 
-  // Default → Claude Code
-  return parseNameAndCwd(trimmed, "claude", "untitled");
-}
-
-function parseNameAndCwd(
-  input: string,
-  type: SessionType,
-  defaultName: string,
-): ParsedInput {
-  if (!input) {
-    return { name: defaultName, cwd: "~", type };
-  }
-
-  // Check if the entire input is a path
-  if (input.startsWith("~/") || input.startsWith("/")) {
-    const name = input.split("/").filter(Boolean).pop() ?? defaultName;
-    return { name, cwd: input, type };
-  }
-
-  // Check for "name /path" or "name ~/path" pattern
-  const spacePathMatch = input.match(/^(\S+)\s+(~?\/.*)$/);
-  if (spacePathMatch) {
-    return { name: spacePathMatch[1], cwd: spacePathMatch[2], type };
-  }
-
-  // Just a name
-  return { name: input, cwd: "~", type };
+  return { name: trimmed || "untitled", type: "claude" };
 }
 
 export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const inferred = useInferCwd(value, column);
 
   function handleSubmit() {
     if (!value.trim()) {
@@ -61,8 +30,8 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
       return;
     }
 
-    const { name, cwd, type } = parseInput(value);
-    const session = addSession({ name, cwd, column, type });
+    const { name, type } = parseInput(value);
+    const session = addSession({ name, cwd: inferred.cwd, column, type });
     setValue("");
     setEditing(false);
     onCreated?.(session.id);
@@ -104,9 +73,25 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
           }
         }}
         onBlur={handleSubmit}
-        placeholder="name [~/path] or ! for shell..."
-        className="w-full bg-[#1c1c1c] text-[12px] text-[#e8e8e8] rounded px-2 py-1.5 outline-none border border-[#7c6aef]/30 focus:border-[#7c6aef]/60 placeholder:text-[#333333]"
+        placeholder="session name..."
+        className="w-full bg-[#1c1c1c] text-[12px] text-[#e8e8e8] rounded-t px-2 py-1.5 outline-none border border-[#7c6aef]/30 focus:border-[#7c6aef]/60 border-b-0 placeholder:text-[#333333]"
       />
+      {value.trim() && (
+        <div className="bg-[#1c1c1c] rounded-b px-2 py-1 border border-t-0 border-[#7c6aef]/30 text-[11px] font-mono truncate">
+          <span
+            className={
+              inferred.confidence === "high"
+                ? "text-[#666666]"
+                : inferred.confidence === "low"
+                  ? "text-[#444444]"
+                  : "text-[#333333]"
+            }
+          >
+            {inferred.cwd}
+            {inferred.confidence === "low" ? " ?" : ""}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
