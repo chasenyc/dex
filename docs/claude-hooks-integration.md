@@ -396,15 +396,98 @@ Sessions needing attention (permission prompt, error) could:
 
 The title bar could show: `3 running · 1 waiting · 1 needs permission`
 
+## Command Palette: Install/Uninstall Hooks
+
+The quick-switch overlay (`Cmd+K`) doubles as a command palette. When the input starts with `>`, it switches from session search to command mode (same pattern as VS Code).
+
+### UX Flow
+
+```
+┌────────────────────────────────────────┐
+│  ⌘K  Commands                          │
+├────────────────────────────────────────┤
+│  > install                             │
+│                                        │
+│  > Install Claude Hooks                │  ← highlighted
+│    Set up session state tracking        │
+│                                        │
+│  > Uninstall Claude Hooks              │
+│    Remove Termaude hooks from Claude    │
+│                                        │
+│  > Rescan Projects                     │
+│    Refresh the project directory index  │
+│                                        │
+└────────────────────────────────────────┘
+```
+
+**Typing `>` in quick-switch** switches to command mode. Commands are fuzzy-filtered as you type. Enter executes the highlighted command.
+
+### Available Commands
+
+| Command | Action |
+|---|---|
+| Install Claude Hooks | Injects Termaude hooks into `~/.claude/settings.json`. Creates `~/.termaude/hooks/state-reporter.sh`. Shows confirmation with what was added. |
+| Uninstall Claude Hooks | Removes all Termaude hooks from `~/.claude/settings.json`. Cleans up `~/.termaude/hooks/`. Shows confirmation. |
+| Rescan Projects | Re-runs the project directory index scan. |
+
+### Install Flow (Detail)
+
+1. User types `>install` in `Cmd+K`, selects "Install Claude Hooks"
+2. Termaude checks if hooks are already installed (scans settings.json for commands containing `termaude`)
+3. If already installed: show "Hooks already installed ✓" inline, no action
+4. If not installed:
+   a. Create `~/.termaude/hooks/state-reporter.sh` (the hook script)
+   b. Backup `~/.claude/settings.json` to `~/.claude/settings.json.bak.{timestamp}`
+   c. Read, parse, merge hooks, atomic write
+   d. Show confirmation: "Hooks installed ✓ — restart running Claude sessions to activate"
+5. Palette closes after confirmation
+
+### Uninstall Flow (Detail)
+
+1. User types `>uninstall`, selects "Uninstall Claude Hooks"
+2. Termaude scans settings.json for its hooks
+3. If no hooks found: show "No hooks to remove" inline
+4. If found:
+   a. Backup settings.json
+   b. Remove all hook entries with commands containing `termaude`
+   c. Clean up empty arrays/objects in the hooks config
+   d. Atomic write
+   e. Remove `~/.termaude/hooks/` directory
+   f. Show confirmation: "Hooks removed ✓"
+
+### Status Indicator
+
+The title bar shows hook status so the user always knows:
+
+```
+Termaude · hooks active        ← green, hooks installed and state files updating
+Termaude · hooks not installed ← muted, no hooks detected
+```
+
+On first launch, if hooks aren't installed, show a subtle one-time prompt at the top of the board:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Install Claude hooks for real-time session status?          │
+│  Cards will show working/waiting/permission states.          │
+│                                                              │
+│  [Install]  [Dismiss]                      ⌘K > install     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Dismissing remembers the choice (stored in app settings). The user can always install later via `Cmd+K > install`.
+
 ## Implementation Order
 
 1. **Write the state-reporter.sh script** — pure bash, reads stdin JSON, writes state files
 2. **Build hook injection in Rust** — safe read-modify-write with locking and backups
-3. **Add a Tauri command** to inject/remove hooks (`setup_hooks` / `remove_hooks`)
-4. **Watch state files from frontend** — Tauri file watcher or polling, update session store
-5. **Update card UI** — new status colors, "working"/"waiting"/"permission" labels
-6. **First-run UX** — on app launch, check if hooks are installed, prompt to set up
-7. **HTTP server (v2)** — for instant state updates without polling
+3. **Add Tauri commands** — `install_hooks`, `uninstall_hooks`, `check_hooks_status`
+4. **Extend quick-switch** — `>` prefix switches to command mode, wire up install/uninstall
+5. **Watch state files from frontend** — Tauri file watcher or polling, update session store
+6. **Update card UI** — new status colors, "working"/"waiting"/"permission" labels
+7. **First-run prompt** — check hook status on launch, show install banner if missing
+8. **Title bar status** — show "hooks active" / "hooks not installed"
+9. **HTTP server (v2)** — for instant state updates without polling
 
 ## Open Questions
 
