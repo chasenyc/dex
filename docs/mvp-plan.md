@@ -268,14 +268,23 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 - **Milestone: the core loop feels good — board, focus, switch, repeat** ✅
 
 ### Phase 5: Polish & Persistence
-- [ ] Session layout persistence (save columns + card positions to JSON)
-- [ ] Restore layout on app restart (sessions show as disconnected)
-- [ ] Restart session from disconnected state
+- [x] Session layout persistence *(JSON registry in Tauri app data dir)*
+- [x] Restore layout on app restart *(running sessions show as closed)*
+- [x] Restart session from disconnected state *(double-click resumes via claude --resume)*
 - [x] Keyboard shortcuts *(Cmd+N new, Cmd+[/] prev/next, Cmd+K switch, Cmd+B board)*
 - [ ] Visual polish pass — shadows, hover states, animations, spacing
 - [x] Card status dot animations (pulse for active)
+- [x] Delete session from board *(trash icon, hover to reveal, red on hover)*
 - [ ] Edge cases — session process dies, resize during drag, rapid switching
 - **Milestone: MVP complete — daily-drivable**
+
+### Bonus: Smart CWD (completed)
+- [x] Project index — Rust-side filesystem scan for .git, package.json, etc.
+- [x] Ghost text inference — shows inferred directory below input as you type
+- [x] Word matching — "agentix bug" matches project "agentix"
+- [x] Tab directory picker — inline fuzzy search with recents + all projects
+- [x] Spaces in session names — input is name-only, no path delimiter
+- [x] Column consensus — 2+ siblings with same cwd auto-infer for new sessions
 
 ---
 

@@ -9,7 +9,9 @@ import {
 } from "@dnd-kit/core";
 import { useState } from "react";
 import {
+  addColumn,
   moveSession,
+  reorderSessionsInColumn,
   type Session,
   useColumns,
   useSessionStore,
@@ -24,6 +26,8 @@ export function Board({ onOpenSession }: BoardProps) {
   const columns = useColumns();
   const { sessions } = useSessionStore();
   const [activeCard, setActiveCard] = useState<Session | null>(null);
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -41,20 +45,48 @@ export function Board({ onOpenSession }: BoardProps) {
     const { active, over } = event;
     if (!over) return;
 
+    const activeId = String(active.id);
     const overId = String(over.id);
+    const activeSession = sessions.get(activeId);
+    if (!activeSession) return;
 
     // Dropped on a column droppable
     if (overId.startsWith("column-")) {
       const columnName = overId.replace("column-", "");
-      moveSession(String(active.id), columnName);
+      moveSession(activeId, columnName);
       return;
     }
 
-    // Dropped on another card — move to that card's column
+    // Dropped on another card
     const targetSession = sessions.get(overId);
-    if (targetSession) {
-      moveSession(String(active.id), targetSession.column);
+    if (!targetSession) return;
+
+    if (activeSession.column === targetSession.column) {
+      // Reorder within same column
+      const columnSessions = Array.from(sessions.values())
+        .filter((s) => s.column === activeSession.column)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const oldIndex = columnSessions.findIndex((s) => s.id === activeId);
+      const newIndex = columnSessions.findIndex((s) => s.id === overId);
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const ids = columnSessions.map((s) => s.id);
+        ids.splice(oldIndex, 1);
+        ids.splice(newIndex, 0, activeId);
+        reorderSessionsInColumn(activeSession.column, ids);
+      }
+    } else {
+      // Move to target's column, placed at target's position
+      moveSession(activeId, targetSession.column, targetSession.order);
     }
+  }
+
+  function handleAddColumn() {
+    const trimmed = newColumnName.trim();
+    if (trimmed) {
+      addColumn(trimmed);
+    }
+    setNewColumnName("");
+    setAddingColumn(false);
   }
 
   return (
@@ -68,10 +100,43 @@ export function Board({ onOpenSession }: BoardProps) {
           {columns.map((col) => (
             <Column key={col} name={col} onOpenSession={onOpenSession} />
           ))}
+
+          {/* Add column button */}
+          <div className="min-w-[200px] shrink-0">
+            {addingColumn ? (
+              <input
+                type="text"
+                value={newColumnName}
+                onChange={(e) => setNewColumnName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddColumn();
+                  if (e.key === "Escape") {
+                    setAddingColumn(false);
+                    setNewColumnName("");
+                  }
+                }}
+                onBlur={handleAddColumn}
+                ref={(el) => el?.focus()}
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder="column name..."
+                className="w-full bg-[#131313] text-[11px] font-semibold uppercase tracking-wider text-[#e8e8e8] rounded-lg px-3 py-2.5 outline-none border border-[#7c6aef]/30 placeholder:text-[#333333] placeholder:normal-case"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingColumn(true)}
+                className="text-[11px] text-[#333333] hover:text-[#555555] transition-colors px-3 py-2.5"
+              >
+                + Add Column
+              </button>
+            )}
+          </div>
         </div>
         <DragOverlay>
           {activeCard ? (
-            <div className="bg-[#1c1c1c] rounded-lg p-3 shadow-xl shadow-black/50 rotate-2 scale-[1.03] border border-[#7c6aef]/20 w-[260px]">
+            <div className="bg-[#1c1c1c] rounded-lg p-3 shadow-lg shadow-black/40 border border-[#7c6aef]/20 w-[260px]">
               <div className="text-[13px] font-medium text-[#e8e8e8] truncate">
                 {activeCard.name}
               </div>

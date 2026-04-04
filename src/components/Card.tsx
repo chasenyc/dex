@@ -37,7 +37,6 @@ export function Card({ session, onOpen }: CardProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   };
 
   const dot = STATUS_DOTS[session.status] ?? STATUS_DOTS.idle;
@@ -59,7 +58,7 @@ export function Card({ session, onOpen }: CardProps) {
         group relative bg-[#1c1c1c] rounded-lg p-3 cursor-grab active:cursor-grabbing
         border border-transparent hover:border-white/[0.06]
         hover:bg-[#202020] transition-colors
-        ${isDragging ? "shadow-lg shadow-black/40 rotate-1 scale-[1.02]" : ""}
+        ${isDragging ? "opacity-30" : ""}
       `}
     >
       <button
@@ -95,6 +94,18 @@ export function Card({ session, onOpen }: CardProps) {
         </span>
       </div>
       <div className="text-[11px] text-[#555555] truncate">{session.cwd}</div>
+      {session.previewLines && session.previewLines.length > 0 && (
+        <div className="mt-1.5 space-y-0.5">
+          {session.previewLines.map((line) => (
+            <div
+              key={`${session.id}-${line.slice(0, 60)}`}
+              className="text-[10px] font-mono text-[#444444] truncate leading-tight"
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-[#444444]">
           {timeAgo(session.lastActivity)}

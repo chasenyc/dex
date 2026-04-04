@@ -13,6 +13,8 @@ export interface Session {
   type: SessionType;
   claudeSessionId?: string;
   status: SessionStatus;
+  previewLines?: string[];
+  order: number;
   createdAt: number;
   lastActivity: number;
   generation: number;
@@ -118,14 +120,23 @@ export function addSession(opts: {
 }): Session {
   const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const sessionType = opts.type ?? "claude";
+  // Place new session at the end of its column
+  const col = opts.column ?? "Active";
+  const maxOrder = Math.max(
+    0,
+    ...Array.from(store.sessions.values())
+      .filter((s) => s.column === col)
+      .map((s) => s.order ?? 0),
+  );
   const session: Session = {
     id,
     name: opts.name,
     cwd: opts.cwd,
-    column: opts.column ?? "Active",
+    column: col,
     type: sessionType,
     claudeSessionId: sessionType === "claude" ? crypto.randomUUID() : undefined,
     status: "running",
+    order: maxOrder + 1,
     createdAt: Date.now(),
     lastActivity: Date.now(),
     generation: 1,
@@ -152,6 +163,16 @@ export function resumeSession(id: string) {
   store = { ...store, sessions: next, activeSessionId: id };
   emitChange();
   scheduleSave();
+}
+
+export function updatePreviewLines(id: string, lines: string[]) {
+  const session = store.sessions.get(id);
+  if (!session) return;
+  const next = new Map(store.sessions);
+  next.set(id, { ...session, previewLines: lines });
+  store = { ...store, sessions: next };
+  emitChange();
+  // Don't save preview lines to disk — they're ephemeral
 }
 
 export function removeSession(id: string) {
@@ -190,11 +211,32 @@ export function updateSessionColumn(id: string, column: string) {
   scheduleSave();
 }
 
-export function moveSession(id: string, toColumn: string, _toIndex?: number) {
+export function moveSession(id: string, toColumn: string, newOrder?: number) {
   const session = store.sessions.get(id);
   if (!session) return;
   const next = new Map(store.sessions);
-  next.set(id, { ...session, column: toColumn });
+  const order =
+    newOrder ??
+    Math.max(
+      0,
+      ...Array.from(next.values())
+        .filter((s) => s.column === toColumn)
+        .map((s) => s.order ?? 0),
+    ) + 1;
+  next.set(id, { ...session, column: toColumn, order });
+  store = { ...store, sessions: next };
+  emitChange();
+  scheduleSave();
+}
+
+export function reorderSessionsInColumn(column: string, orderedIds: string[]) {
+  const next = new Map(store.sessions);
+  for (let i = 0; i < orderedIds.length; i++) {
+    const session = next.get(orderedIds[i]);
+    if (session && session.column === column) {
+      next.set(orderedIds[i], { ...session, order: i });
+    }
+  }
   store = { ...store, sessions: next };
   emitChange();
   scheduleSave();
@@ -202,6 +244,44 @@ export function moveSession(id: string, toColumn: string, _toIndex?: number) {
 
 export function setColumns(columns: string[]) {
   store = { ...store, columns };
+  emitChange();
+  scheduleSave();
+}
+
+export function addColumn(name: string) {
+  if (store.columns.includes(name)) return;
+  store = { ...store, columns: [...store.columns, name] };
+  emitChange();
+  scheduleSave();
+}
+
+export function removeColumn(name: string) {
+  // Move sessions from deleted column to the first remaining column
+  const remaining = store.columns.filter((c) => c !== name);
+  if (remaining.length === 0) return; // Can't delete the last column
+  const fallback = remaining[0];
+  const next = new Map(store.sessions);
+  for (const [id, session] of next) {
+    if (session.column === name) {
+      next.set(id, { ...session, column: fallback });
+    }
+  }
+  store = { ...store, columns: remaining, sessions: next };
+  emitChange();
+  scheduleSave();
+}
+
+export function renameColumn(oldName: string, newName: string) {
+  if (oldName === newName) return;
+  if (store.columns.includes(newName)) return;
+  const columns = store.columns.map((c) => (c === oldName ? newName : c));
+  const next = new Map(store.sessions);
+  for (const [id, session] of next) {
+    if (session.column === oldName) {
+      next.set(id, { ...session, column: newName });
+    }
+  }
+  store = { ...store, columns, sessions: next };
   emitChange();
   scheduleSave();
 }
@@ -230,7 +310,9 @@ export function useColumns(): string[] {
 
 export function useSessionsByColumn(column: string): Session[] {
   const { sessions } = useSessionStore();
-  return Array.from(sessions.values()).filter((s) => s.column === column);
+  return Array.from(sessions.values())
+    .filter((s) => s.column === column)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export function useRegistryLoaded(): boolean {
