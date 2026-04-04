@@ -84,49 +84,49 @@ The goal of Phase 0 is not just "get it running" — it's to set up the project 
 
 #### 0a. Initialize the Project
 
-- [ ] Scaffold with `npm create tauri-app@latest termaude -- --template react-ts`
-- [ ] Set up Tailwind CSS
-- [ ] Add frontend deps: `xterm`, `@xterm/addon-fit`, `@dnd-kit/core`
-- [ ] Add Rust dep: `portable-pty` in `src-tauri/Cargo.toml`
-- [ ] Verify the app builds and opens a window on macOS
+- [x] Scaffold with `npm create tauri-app@latest termaude -- --template react-ts`
+- [x] Set up Tailwind CSS
+- [x] Add frontend deps: `xterm`, `@xterm/addon-fit`, `@dnd-kit/core`
+- [x] Add Rust dep: `portable-pty` in `src-tauri/Cargo.toml`
+- [x] Verify the app builds and opens a window on macOS
 
 #### 0b. Linting & Formatting (Zero Tolerance from Day One)
 
 **TypeScript — Biome** (replaces ESLint + Prettier, single tool, sub-second):
-- [ ] Install `@biomejs/biome`, run `npx biome init`
-- [ ] Configure `biome.json`: recommended rules, 2-space indent, enforce imports order
-- [ ] Add `package.json` scripts: `lint`, `lint:fix`, `format`
+- [x] Install `@biomejs/biome`, run `npx biome init`
+- [x] Configure `biome.json`: recommended rules, 2-space indent, enforce imports order
+- [x] Add `package.json` scripts: `lint`, `lint:fix`, `format`
 
 **Rust — clippy + rustfmt**:
-- [ ] Add `src-tauri/rustfmt.toml` (edition 2021, max_width 100)
-- [ ] Enable clippy pedantic warnings in `src-tauri/Cargo.toml` `[lints.clippy]`
-- [ ] Add script: `"lint:rust": "cd src-tauri && cargo fmt -- --check && cargo clippy -- -D warnings"`
+- [x] Add `src-tauri/rustfmt.toml` (edition 2021, max_width 100)
+- [x] Enable clippy pedantic warnings in `src-tauri/Cargo.toml` `[lints.clippy]`
+- [x] Add script: `"lint:rust": "cd src-tauri && cargo fmt -- --check && cargo clippy -- -D warnings"`
 
 #### 0c. Testing Infrastructure
 
 **TypeScript — Vitest** (shares Vite config, zero extra bundler setup):
-- [ ] Install `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`
-- [ ] Add test config to `vite.config.ts` (jsdom environment, global setup file)
-- [ ] Create `src/test/setup.ts` with testing-library matchers
-- [ ] Write one smoke test to prove the pipeline works
-- [ ] Add scripts: `"test": "vitest run"`, `"test:watch": "vitest"`
+- [x] Install `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`
+- [x] Add test config to `vite.config.ts` (jsdom environment, global setup file)
+- [x] Create `src/test/setup.ts` with testing-library matchers
+- [x] Write one smoke test to prove the pipeline works
+- [x] Add scripts: `"test": "vitest run"`, `"test:watch": "vitest"`
 
 **Rust — cargo test**:
 - [ ] Write one smoke test using `tauri::test::mock_builder()`
-- [ ] Add script: `"test:rust": "cd src-tauri && cargo test"`
+- [x] Add script: `"test:rust": "cd src-tauri && cargo test"`
 
 #### 0d. Pre-Commit Hooks (Enforce on Every Commit)
 
-- [ ] Install `husky` + `lint-staged`, run `npx husky init`
-- [ ] Configure `lint-staged` in `package.json`:
+- [x] Install `husky` + `lint-staged`, run `npx husky init`
+- [x] Configure `lint-staged` in `package.json`:
   ```json
   "lint-staged": {
     "src/**/*.{ts,tsx}": ["biome check --write --no-errors-on-unmatched"],
     "src-tauri/**/*.rs": ["sh -c 'cd src-tauri && cargo fmt -- --check && cargo clippy -- -D warnings'"]
   }
   ```
-- [ ] `.husky/pre-commit` runs `npx lint-staged`
-- [ ] Verify: a commit with a lint error should be rejected
+- [x] `.husky/pre-commit` runs `npx lint-staged`
+- [x] Verify: a commit with a lint error should be rejected
 
 #### 0e. CLAUDE.md (Project Rules for AI-Assisted Development)
 
@@ -217,28 +217,28 @@ This auto-formats every file Claude edits and pre-approves safe commands so deve
 
 #### 0g. Git Init & First Commit
 
-- [ ] `git init`, create `.gitignore` (node_modules, target, dist, .env*)
-- [ ] Add `.claude/settings.local.json` to `.gitignore`
-- [ ] Initial commit with scaffolding, linting, tests, CLAUDE.md, and settings
+- [x] `git init`, create `.gitignore` (node_modules, target, dist, .env*)
+- [x] Add `.claude/settings.local.json` to `.gitignore`
+- [x] Initial commit with scaffolding, linting, tests, CLAUDE.md, and settings
 - [ ] Verify: clone fresh, `npm install`, `npm run lint`, `npm run test` all pass
 
 #### 0h. Proof of Life
 
-- [ ] Wire up one Tauri command that spawns a PTY and streams output
-- [ ] Render output in a single xterm.js instance in the frontend
-- [ ] Type a keystroke → it reaches the PTY → output appears on screen
-- [ ] **Milestone: a window with one working terminal, backed by enforced linting and tests**
+- [x] Wire up one Tauri command that spawns a PTY and streams output
+- [x] Render output in a single xterm.js instance in the frontend
+- [x] Type a keystroke → it reaches the PTY → output appears on screen
+- [x] **Milestone: a window with one working terminal, backed by enforced linting and tests**
 
 ### Phase 1: Single Terminal, Full Screen
-- [ ] Full-screen terminal view with xterm.js
-- [ ] Proper terminal resize handling
+- [x] Full-screen terminal view with xterm.js
+- [x] Proper terminal resize handling
 - [ ] Copy/paste support
 - [ ] Basic Tauri window chrome (title bar, close/minimize/maximize)
-- [ ] Terminal font configuration (hardcoded to JetBrains Mono or system monospace)
-- **Milestone: a usable single-session terminal app**
+- [x] Terminal font configuration (hardcoded to JetBrains Mono or system monospace)
+- **Milestone: a usable single-session terminal app** *(mostly complete)*
 
 ### Phase 2: Multiple Sessions
-- [ ] Backend supports multiple simultaneous PTY sessions
+- [x] Backend supports multiple simultaneous PTY sessions *(PtyManager already uses HashMap of sessions)*
 - [ ] Frontend manages multiple xterm.js instances
 - [ ] Sessions stay alive when not focused (background PTY keeps running)
 - [ ] IPC multiplexing — route output to correct session

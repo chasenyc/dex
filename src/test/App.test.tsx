@@ -19,11 +19,17 @@ vi.mock("@xterm/xterm", () => {
     onResize = vi.fn().mockReturnValue({ dispose: vi.fn() });
     writeln = vi.fn();
     write = vi.fn();
+    focus = vi.fn();
     dispose = vi.fn();
     cols = 80;
     rows = 24;
   }
   return { Terminal: MockTerminal };
+});
+
+vi.mock("@xterm/addon-clipboard", () => {
+  class MockClipboardAddon {}
+  return { ClipboardAddon: MockClipboardAddon };
 });
 
 vi.mock("@xterm/addon-fit", () => {

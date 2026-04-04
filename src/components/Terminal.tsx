@@ -1,20 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
+import { updateSessionStatus } from "../store/sessions";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
   sessionId: string;
   cwd?: string;
+  visible: boolean;
 }
 
-export function Terminal({ sessionId, cwd }: TerminalProps) {
+export function Terminal({ sessionId, cwd, visible }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const ptyIdRef = useRef<string | null>(null);
 
+  // Create terminal and PTY on mount
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -49,30 +54,36 @@ export function Terminal({ sessionId, cwd }: TerminalProps) {
     });
 
     const fitAddon = new FitAddon();
+    const clipboardAddon = new ClipboardAddon();
     term.loadAddon(fitAddon);
+    term.loadAddon(clipboardAddon);
     term.open(container);
     fitAddon.fit();
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Unique ID per effect run so React StrictMode double-mount doesn't collide
     const ptyId = `${sessionId}-${Date.now()}`;
-    const cols = term.cols;
-    const rows = term.rows;
+    ptyIdRef.current = ptyId;
 
-    invoke("create_session", { id: ptyId, cwd, cols, rows }).catch(
-      (err: unknown) => {
-        term.writeln(`\r\nFailed to create session: ${String(err)}`);
-      },
-    );
+    invoke("create_session", {
+      id: ptyId,
+      cwd,
+      cols: term.cols,
+      rows: term.rows,
+    }).catch((err: unknown) => {
+      term.writeln(`\r\nFailed to create session: ${String(err)}`);
+      updateSessionStatus(sessionId, "error");
+    });
 
     const outputUnlisten = listen<number[]>(`pty-output-${ptyId}`, (event) => {
       term.write(new Uint8Array(event.payload));
+      updateSessionStatus(sessionId, "running");
     });
 
     const exitUnlisten = listen(`pty-exit-${ptyId}`, () => {
       term.writeln("\r\n[Process exited]");
+      updateSessionStatus(sessionId, "exited");
     });
 
     const onDataDisposable = term.onData((data: string) => {
@@ -103,11 +114,30 @@ export function Terminal({ sessionId, cwd }: TerminalProps) {
     };
   }, [sessionId, cwd]);
 
+  // Re-fit when visibility changes
+  useEffect(() => {
+    if (visible && fitAddonRef.current) {
+      // Small delay to let the DOM layout settle before fitting
+      const timer = setTimeout(() => fitAddonRef.current?.fit(), 10);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
+  // Focus terminal when visible
+  useEffect(() => {
+    if (visible && termRef.current) {
+      termRef.current.focus();
+    }
+  }, [visible]);
+
   return (
     <div
       ref={containerRef}
       className="w-full h-full"
-      style={{ padding: "4px" }}
+      style={{
+        padding: "4px",
+        display: visible ? "block" : "none",
+      }}
     />
   );
 }
