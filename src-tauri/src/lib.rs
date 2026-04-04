@@ -1,3 +1,8 @@
+mod commands;
+mod pty;
+
+use pty::PtyManager;
+
 /// Start the Tauri application.
 ///
 /// # Panics
@@ -6,6 +11,13 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(PtyManager::new())
+        .invoke_handler(tauri::generate_handler![
+            commands::create_session,
+            commands::write_to_session,
+            commands::resize_session,
+            commands::close_session,
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
