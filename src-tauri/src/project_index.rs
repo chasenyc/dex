@@ -172,7 +172,20 @@ pub fn load_project_index(app: AppHandle) -> Result<Vec<Project>, String> {
         let json = fs::read_to_string(&path).map_err(|e| format!("read error: {e}"))?;
         let projects: Vec<Project> =
             serde_json::from_str(&json).map_err(|e| format!("parse error: {e}"))?;
-        Ok(projects)
+        // Filter out directories that no longer exist
+        let home = std::env::var("HOME").unwrap_or_default();
+        let valid: Vec<Project> = projects
+            .into_iter()
+            .filter(|p| {
+                let abs = if p.path.starts_with("~/") {
+                    format!("{}{}", home, &p.path[1..])
+                } else {
+                    p.path.clone()
+                };
+                std::path::Path::new(&abs).is_dir()
+            })
+            .collect();
+        Ok(valid)
     } else {
         // No cache yet, do a fresh scan
         scan_projects(app)
