@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { type Session, setActiveSession, useSessions } from "../store/sessions";
+import { DirectoryPicker } from "./DirectoryPicker";
 
 interface QuickSwitchProps {
   open: boolean;
@@ -55,12 +56,10 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [folderPrompt, setFolderPrompt] = useState(false);
-  const [folderValue, setFolderValue] = useState("");
   const [currentDefaultFolder, setCurrentDefaultFolder] = useState<
     string | null
   >(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
 
   const isCommandMode = query.startsWith(">");
   const commandQuery = isCommandMode ? query.slice(1).trim() : "";
@@ -111,8 +110,6 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
       description: `${currentDefaultFolder ? `Current: ${currentDefaultFolder}` : "Default: ~"} — new sessions start here`,
       action: async () => {
         setFolderPrompt(true);
-        setFolderValue(currentDefaultFolder ?? "~/");
-        requestAnimationFrame(() => folderRef.current?.select());
       },
     },
   ];
@@ -222,40 +219,23 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
         </div>
 
         {folderPrompt ? (
-          <div className="px-4 py-3">
+          <div className="px-3 py-2">
             <div className="text-[11px] text-[#555555] mb-2">
-              Enter default start folder:
+              Set default start folder:
             </div>
-            <input
-              ref={folderRef}
-              type="text"
-              value={folderValue}
-              onChange={(e) => setFolderValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const trimmed = folderValue.trim();
-                  if (trimmed) {
-                    invoke("set_default_folder", { folder: trimmed });
-                    setCurrentDefaultFolder(trimmed);
-                    setFeedback(`Default folder set to ${trimmed}`);
-                    setFolderPrompt(false);
-                    setTimeout(() => {
-                      setFeedback(null);
-                      onClose();
-                    }, 1500);
-                  }
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  setFolderPrompt(false);
-                }
+            <DirectoryPicker
+              inferredCwd={currentDefaultFolder ?? "~"}
+              onSelect={(cwd) => {
+                invoke("set_default_folder", { folder: cwd });
+                setCurrentDefaultFolder(cwd);
+                setFeedback(`Default folder set to ${cwd}`);
+                setFolderPrompt(false);
+                setTimeout(() => {
+                  setFeedback(null);
+                  onClose();
+                }, 1500);
               }}
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              className="w-full bg-[#252525] text-[13px] text-[#e8e8e8] rounded px-3 py-2 outline-none border border-[#7c6aef]/30 focus:border-[#7c6aef]/60 placeholder:text-[#555555] font-mono"
-              placeholder="~/projects"
+              onBack={() => setFolderPrompt(false)}
             />
           </div>
         ) : feedback ? (

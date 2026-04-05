@@ -38,7 +38,8 @@ export function NewSessionInput({
       setEditing(true);
       setValue("");
       setPickerOpen(false);
-      requestAnimationFrame(() => inputRef.current?.focus());
+      // Delay focus to let the board view transition complete (180ms)
+      setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [autoFocusTrigger]);
 
