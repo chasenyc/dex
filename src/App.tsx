@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Board } from "./components/Board";
 import { QuickSwitch } from "./components/QuickSwitch";
 import { Terminal } from "./components/Terminal";
@@ -7,6 +7,7 @@ import { buildCommand } from "./lib/commands";
 import {
   addSession,
   loadRegistry,
+  renameSession,
   resumeSession,
   setActiveSession,
   startHookListener,
@@ -31,6 +32,9 @@ export function App() {
   const [view, setView] = useState<View>("board");
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
+  const [titleRenaming, setTitleRenaming] = useState(false);
+  const [titleRenameValue, setTitleRenameValue] = useState("");
+  const titleRenameRef = useRef<HTMLInputElement>(null);
 
   // Load persisted sessions on startup
   useEffect(() => {
@@ -159,21 +163,64 @@ export function App() {
         data-tauri-drag-region
         className="h-10 shrink-0 flex items-center px-4 gap-2 border-b border-white/[0.04]"
       >
-        <span className="text-[11px] text-[#444444] ml-[70px] select-none">
-          Termaude
-        </span>
-
-        {/* Focus view: show active session name + column + git info */}
+        {/* Board view: show app name. Focus view: show session info */}
+        {view === "board" ? (
+          <span className="text-[11px] text-[#444444] ml-[70px] select-none">
+            Termaude
+          </span>
+        ) : null}
         {view === "focus" && activeSession && (
-          <span className="text-[11px] text-[#555555] select-none truncate max-w-[300px] flex items-center gap-1.5">
-            <span className="text-[#666666] truncate">
-              {activeSession.name}
-            </span>
-            <span className="text-[#333333]">·</span>
-            <span className="truncate">{activeSession.column}</span>
+          <div className="text-[11px] text-[#555555] select-none flex items-center gap-1.5 ml-[70px]">
+            {titleRenaming ? (
+              <input
+                ref={titleRenameRef}
+                type="text"
+                value={titleRenameValue}
+                onChange={(e) => setTitleRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const trimmed = titleRenameValue.trim();
+                    if (trimmed && activeSession) {
+                      renameSession(activeSession.id, trimmed);
+                    }
+                    setTitleRenaming(false);
+                  }
+                  if (e.key === "Escape") setTitleRenaming(false);
+                }}
+                onBlur={() => {
+                  const trimmed = titleRenameValue.trim();
+                  if (trimmed && activeSession) {
+                    renameSession(activeSession.id, trimmed);
+                  }
+                  setTitleRenaming(false);
+                }}
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="text-[11px] text-[#e8e8e8] bg-transparent outline-none border-b border-[#7c6aef]/40 max-w-[150px]"
+              />
+            ) : (
+              <button
+                type="button"
+                className="text-[#666666] truncate max-w-[150px] bg-transparent border-none p-0 text-left text-[11px] cursor-text hover:text-[#888888] transition-colors duration-100"
+                onDoubleClick={() => {
+                  if (activeSession) {
+                    setTitleRenameValue(activeSession.name);
+                    setTitleRenaming(true);
+                    requestAnimationFrame(() =>
+                      titleRenameRef.current?.select(),
+                    );
+                  }
+                }}
+              >
+                {activeSession.name}
+              </button>
+            )}
+            <span className="text-[#333333] shrink-0">·</span>
+            <span className="shrink-0">{activeSession.column}</span>
             {gitInfo && (
               <>
-                <span className="text-[#333333]">·</span>
+                <span className="text-[#333333] shrink-0">·</span>
                 <span className="text-[#555555] shrink-0">
                   {gitInfo.branch}
                 </span>
@@ -194,7 +241,7 @@ export function App() {
                 )}
               </>
             )}
-          </span>
+          </div>
         )}
 
         <div className="flex-1" />
