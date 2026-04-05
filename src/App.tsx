@@ -145,7 +145,10 @@ export function App() {
     (s) =>
       s.status === "running" ||
       s.status === "idle" ||
-      s.status === "permission",
+      s.status === "permission" ||
+      // Keep closed/exited terminals mounted if they're the active session in focus view
+      // so the user can read exit messages (e.g. "session not found")
+      (s.id === activeSession?.id && view === "focus"),
   );
 
   if (!loaded) {
@@ -327,7 +330,6 @@ export function App() {
                 cwd={session.cwd}
                 command={buildCommand(session, session.generation > 1)}
                 visible={activeSession?.id === session.id && view === "focus"}
-                onExit={goToBoard}
               />
             </div>
           ))}
