@@ -9,6 +9,7 @@ import {
   resumeSession,
   setActiveSession,
   startHookListener,
+  updateSessionStatus,
   useActiveSession,
   useRegistryLoaded,
   useSessions,
@@ -76,6 +77,14 @@ export function App() {
         return;
       }
 
+      // Cmd+W — kill active terminal, go back to board
+      if (mod && e.key === "w" && view === "focus" && activeSession) {
+        e.preventDefault();
+        updateSessionStatus(activeSession.id, "closed");
+        setView("board");
+        return;
+      }
+
       if (mod && e.key === "]") {
         e.preventDefault();
         if (sessions.length < 2 || !activeSession) return;
@@ -93,7 +102,7 @@ export function App() {
         openSession(prev.id);
       }
     },
-    [sessions, activeSession, openSession],
+    [sessions, activeSession, openSession, view],
   );
 
   useEffect(() => {
