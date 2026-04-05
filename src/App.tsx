@@ -167,12 +167,8 @@ export function App() {
         data-tauri-drag-region
         className="h-10 shrink-0 flex items-center px-4 gap-2 border-b border-white/[0.04]"
       >
-        {/* Board view: show app name. Focus view: show session info */}
-        {view === "board" ? (
-          <span className="text-[11px] text-[#444444] ml-[70px] select-none">
-            Dex
-          </span>
-        ) : null}
+        {/* Spacer for traffic lights */}
+        {view === "board" && <div className="ml-[70px]" />}
         {view === "focus" && activeSession && (
           <div className="text-[11px] text-[#555555] select-none flex items-center gap-1.5 ml-[70px]">
             {titleRenaming ? (
