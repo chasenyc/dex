@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target ${{ matrix.target }}
+
+      - name: Package .app bundle
+        run: |
+          APP_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app" -maxdepth 2 | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found, checking for dmg..."
+            DMG_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.dmg" | head -1)
+            cp "$DMG_PATH" dex-${{ matrix.target }}.dmg
+          else
+            tar -czf dex-${{ matrix.target }}.tar.gz -C "$(dirname "$APP_PATH")" "$(basename "$APP_PATH")"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dex-${{ matrix.target }}
+          path: |
+            dex-${{ matrix.target }}.tar.gz
+            dex-${{ matrix.target }}.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dex-*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dex-*.tar.gz
+            dex-*.dmg
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download release assets
+        run: |
+          gh release download "$GITHUB_REF_NAME" \
+            --repo chasenyc/dex \
+            --pattern '*.tar.gz'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute checksums
+        id: sha
+        run: |
+          echo "arm=$(sha256sum dex-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "intel=$(sha256sum dex-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA_ARM: ${{ steps.sha.outputs.arm }}
+          SHA_INTEL: ${{ steps.sha.outputs.intel }}
+        run: |
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/chasenyc/homebrew-tap.git tap
+          mkdir -p tap/Casks
+
+          cat > tap/Casks/dex.rb <<EOF
+          cask "dex" do
+            version "${VERSION}"
+
+            if Hardware::CPU.arm?
+              url "https://github.com/chasenyc/dex/releases/download/v${VERSION}/dex-aarch64-apple-darwin.tar.gz"
+              sha256 "${SHA_ARM}"
+            else
+              url "https://github.com/chasenyc/dex/releases/download/v${VERSION}/dex-x86_64-apple-darwin.tar.gz"
+              sha256 "${SHA_INTEL}"
+            end
+
+            name "Dex"
+            desc "Kanban-style Claude Code session manager"
+            homepage "https://github.com/chasenyc/dex"
+
+            app "Dex.app"
+
+            zap trash: [
+              "~/Library/Application Support/com.dex.app",
+              "~/.dex",
+            ]
+          end
+          EOF
+
+          # Strip leading whitespace from heredoc
+          sed -i 's/^          //' tap/Casks/dex.rb
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/dex.rb
+          git commit -m "Update dex to ${VERSION}"
+          git push
