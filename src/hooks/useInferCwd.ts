@@ -70,16 +70,23 @@ export function useInferCwd(name: string, column: string): InferResult {
   const allSessions = useSessions();
   const loadedRef = useRef(false);
 
+  const [defaultFolder, setDefaultFolder] = useState<string | null>(null);
+
   useEffect(() => {
     if (!loadedRef.current) {
       loadedRef.current = true;
       ensureProjects().then(setProjects);
+      invoke<string | null>("get_default_folder").then((f) =>
+        setDefaultFolder(f),
+      );
     }
   }, []);
 
+  const fallbackCwd = defaultFolder ?? "~";
+
   return useMemo(() => {
     const trimmed = name.trim().toLowerCase();
-    if (!trimmed) return { cwd: "~", confidence: "none" };
+    if (!trimmed) return { cwd: fallbackCwd, confidence: "none" };
 
     // Helper: check if a cwd is known-valid (skip known-invalid, async-check unknown)
     function isValid(path: string): boolean {
@@ -138,8 +145,8 @@ export function useInferCwd(name: string, column: string): InferResult {
       return { cwd: partialMatch.path, confidence: "low" };
     }
 
-    return { cwd: "~", confidence: "none" };
-  }, [name, projects, columnSessions, allSessions]);
+    return { cwd: fallbackCwd, confidence: "none" };
+  }, [name, projects, columnSessions, allSessions, fallbackCwd]);
 }
 
 export type { Project };

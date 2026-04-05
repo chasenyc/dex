@@ -5,6 +5,7 @@ mod hooks;
 mod persistence;
 mod project_index;
 mod pty;
+mod settings;
 
 use pty::PtyManager;
 
@@ -31,6 +32,8 @@ pub fn run() {
             hooks::uninstall_hooks,
             hooks::check_hooks_status,
             git_status::get_git_info,
+            settings::get_default_folder,
+            settings::set_default_folder,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
