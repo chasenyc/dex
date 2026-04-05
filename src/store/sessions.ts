@@ -368,7 +368,7 @@ export function startHookListener() {
     const { session_id, state, preview_lines, cwd } = event.payload;
     const { sessions } = store;
 
-    // For ShellPwd events, match by Termaude session ID (not claudeSessionId)
+    // For ShellPwd events, match by Dex session ID (not claudeSessionId)
     if (cwd) {
       for (const session of sessions.values()) {
         if (session.id === session_id) {

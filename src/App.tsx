@@ -170,7 +170,7 @@ export function App() {
         {/* Board view: show app name. Focus view: show session info */}
         {view === "board" ? (
           <span className="text-[11px] text-[#444444] ml-[70px] select-none">
-            Termaude
+            Dex
           </span>
         ) : null}
         {view === "focus" && activeSession && (

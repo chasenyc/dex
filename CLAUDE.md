@@ -1,4 +1,4 @@
-# Termaude
+# Dex
 
 Terminal kanban manager. Tauri v2 (Rust backend) + React + TypeScript (frontend) + xterm.js.
 

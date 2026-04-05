@@ -87,7 +87,7 @@ impl PtyManager {
             let mut c = CommandBuilder::new_default_prog();
             if let Some(sid) = session_id {
                 let home = std::env::var("HOME").unwrap_or_default();
-                let zdotdir = format!("{home}/.termaude/shell/{sid}");
+                let zdotdir = format!("{home}/.dex/shell/{sid}");
                 let _ = std::fs::create_dir_all(&zdotdir);
 
                 // .zshenv runs first, resets ZDOTDIR so user's real .zshrc loads,
@@ -95,12 +95,12 @@ impl PtyManager {
                 let zshenv = format!(
                     concat!(
                         "export ZDOTDIR=\"$HOME\"\n",
-                        "_termaude_chpwd() {{\n",
-                        "  printf '\\033]7;file://termaude-{sid}%s\\a' \"$PWD\"\n",
+                        "_dex_chpwd() {{\n",
+                        "  printf '\\033]7;file://dex-{sid}%s\\a' \"$PWD\"\n",
                         "}}\n",
                         "autoload -Uz add-zsh-hook\n",
-                        "add-zsh-hook chpwd _termaude_chpwd\n",
-                        "_termaude_chpwd\n",
+                        "add-zsh-hook chpwd _dex_chpwd\n",
+                        "_dex_chpwd\n",
                     ),
                     sid = sid,
                 );

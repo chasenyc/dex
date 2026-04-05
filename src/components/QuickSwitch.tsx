@@ -81,7 +81,7 @@ export function QuickSwitch({ open, onClose }: QuickSwitchProps) {
     {
       id: "uninstall-hooks",
       name: "Uninstall Claude Hooks",
-      description: "Remove Termaude hooks from Claude",
+      description: "Remove Dex hooks from Claude",
       action: async () => {
         const result = await invoke<string>("uninstall_hooks");
         setFeedback(result);

@@ -91,9 +91,9 @@ export function Terminal({
     fitAddon.fit();
 
     // Capture CWD from shell chpwd hook via OSC 7
-    // Format: file://termaude-<session-id>/absolute/path
+    // Format: file://dex-<session-id>/absolute/path
     const oscDisposable = term.parser.registerOscHandler(7, (data) => {
-      const prefix = `file://termaude-${sessionId}`;
+      const prefix = `file://dex-${sessionId}`;
       if (data.startsWith(prefix)) {
         const pwd = data.slice(prefix.length);
         if (pwd) {

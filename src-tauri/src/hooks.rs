@@ -180,7 +180,7 @@ pub fn uninstall_hooks() -> Result<String, String> {
     if removed > 0 {
         Ok(format!("Removed {removed} hooks."))
     } else {
-        Ok("No Termaude hooks found.".to_string())
+        Ok("No Dex hooks found.".to_string())
     }
 }
 

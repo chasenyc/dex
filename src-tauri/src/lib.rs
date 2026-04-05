@@ -1,4 +1,5 @@
 mod commands;
+pub mod constants;
 mod git_status;
 mod hook_server;
 mod hooks;

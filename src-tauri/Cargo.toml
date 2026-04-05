@@ -1,5 +1,5 @@
 [package]
-name = "termaude"
+name = "dex"
 version = "0.1.0"
 description = "Terminal kanban manager"
 authors = []
