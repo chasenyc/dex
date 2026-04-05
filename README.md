@@ -4,26 +4,19 @@ A kanban board for your Claude Code sessions.
 
 <!-- TODO: Add demo GIF here -->
 
-## The Problem
+## Why
 
-You're running Claude Code across five tasks. Five terminal tabs. Which one was the auth fix? Did you close the migration session? What was that API thing you started yesterday?
+Running multiple Claude Code sessions means juggling terminal tabs with no way to tell them apart, no persistence when you close one, and no overview of what's active. Dex puts each session on a kanban board as a card that persists — close a session, it stays on the board. Double-click to resume the conversation with full context via `claude --resume`.
 
-Close a terminal and the session is gone. Forget to resume and you're starting from scratch — re-explaining context Claude already had. You end up keeping sessions open just to avoid losing them, and your desktop fills with terminals you can't tell apart.
+## What It Does
 
-Terminal tabs don't work for AI-assisted development. They're anonymous, ephemeral, and flat. You need something spatial.
-
-## What Dex Does
-
-Dex treats every Claude session as a persistent work item on a kanban board. Sessions don't disappear when you close them — they stay on the board as cards you can pick back up anytime. The conversation, the context, the working directory — it's all there when you come back.
-
-You stop managing terminals and start managing work.
-
-- **Create a session** by typing a name. Dex figures out the working directory automatically.
-- **Work in a full-screen terminal.** Every feature you'd expect — colors, WebGL rendering, copy/paste.
-- **Close whenever you want.** The card stays on the board. Come back in five minutes or five days.
-- **Resume with a double-click.** Claude picks up exactly where you left off. No re-explaining.
-- **See everything at a glance.** Which sessions are running, which need your input, which are done.
-- **Drag cards** between columns to match your workflow — backlog, active, done, or whatever you want.
+- **Sessions are cards on a board.** Columns for whatever workflow makes sense to you.
+- **Sessions persist.** Close a terminal, the card stays. Resume anytime.
+- **Smart directory inference.** Type a name, Dex matches it to a project on disk.
+- **Real-time status.** See which sessions are working, waiting, or need permission — without opening them.
+- **Full terminal.** xterm.js with WebGL rendering, copy/paste, resize.
+- **Drag-and-drop.** Reorder cards, move between columns.
+- **Shell sessions too.** Prefix with `!` for a raw shell.
 
 ## Install
 
