@@ -39,7 +39,7 @@ jobs:
         with:
           args: --target ${{ matrix.target }}
 
-      - name: Package .app bundle
+      - name: Sign and package .app bundle
         run: |
           APP_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app" -maxdepth 2 | head -1)
           if [ -z "$APP_PATH" ]; then
@@ -47,6 +47,8 @@ jobs:
             DMG_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.dmg" | head -1)
             cp "$DMG_PATH" dex-${{ matrix.target }}.dmg
           else
+            # Ad-hoc sign to prevent "damaged" Gatekeeper error
+            codesign --force --deep -s - "$APP_PATH"
             tar -czf dex-${{ matrix.target }}.tar.gz -C "$(dirname "$APP_PATH")" "$(basename "$APP_PATH")"
           fi
 
