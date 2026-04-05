@@ -16,9 +16,10 @@ import { NewSessionInput } from "./NewSessionInput";
 interface ColumnProps {
   name: string;
   onOpenSession: (id: string) => void;
+  autoFocusNew?: number;
 }
 
-export function Column({ name, onOpenSession }: ColumnProps) {
+export function Column({ name, onOpenSession, autoFocusNew }: ColumnProps) {
   const sessions = useSessionsByColumn(name);
   const columns = useColumns();
   const { setNodeRef, isOver } = useDroppable({ id: `column-${name}` });
@@ -128,7 +129,11 @@ export function Column({ name, onOpenSession }: ColumnProps) {
         </SortableContext>
       </div>
       <div className="px-2 pb-2 shrink-0">
-        <NewSessionInput column={name} onCreated={onOpenSession} />
+        <NewSessionInput
+          column={name}
+          onCreated={onOpenSession}
+          autoFocusTrigger={autoFocusNew}
+        />
       </div>
     </div>
   );

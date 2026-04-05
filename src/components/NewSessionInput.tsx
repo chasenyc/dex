@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInferCwd } from "../hooks/useInferCwd";
 import { addSession, type SessionType } from "../store/sessions";
 import { DirectoryPicker } from "./DirectoryPicker";
@@ -7,6 +7,7 @@ import { DirectoryPicker } from "./DirectoryPicker";
 interface NewSessionInputProps {
   column: string;
   onCreated?: (sessionId: string) => void;
+  autoFocusTrigger?: number;
 }
 
 function parseInput(raw: string): { name: string; type: SessionType } {
@@ -20,12 +21,26 @@ function parseInput(raw: string): { name: string; type: SessionType } {
   return { name: trimmed || "untitled", type: "claude" };
 }
 
-export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
+export function NewSessionInput({
+  column,
+  onCreated,
+  autoFocusTrigger,
+}: NewSessionInputProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inferred = useInferCwd(value, column);
+
+  // Auto-open input when triggered externally (e.g. Cmd+N)
+  useEffect(() => {
+    if (autoFocusTrigger && autoFocusTrigger > 0) {
+      setEditing(true);
+      setValue("");
+      setPickerOpen(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [autoFocusTrigger]);
 
   async function createSession(cwd: string) {
     if (!value.trim()) return;

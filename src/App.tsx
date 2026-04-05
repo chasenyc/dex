@@ -32,6 +32,7 @@ export function App() {
   const [view, setView] = useState<View>("board");
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
+  const [newSessionTrigger, setNewSessionTrigger] = useState(0);
   const [titleRenaming, setTitleRenaming] = useState(false);
   const [titleRenameValue, setTitleRenameValue] = useState("");
   const titleRenameRef = useRef<HTMLInputElement>(null);
@@ -94,11 +95,11 @@ export function App() {
         return;
       }
 
+      // Cmd+N — go to board and focus the new session input on the first column
       if (mod && e.key === "n") {
         e.preventDefault();
-        const name = `session-${sessions.length + 1}`;
-        const session = addSession({ name, cwd: "~" });
-        openSession(session.id);
+        setView("board");
+        setNewSessionTrigger((n) => n + 1);
         return;
       }
 
@@ -304,7 +305,10 @@ export function App() {
             pointerEvents: view === "board" ? "auto" : "none",
           }}
         >
-          <Board onOpenSession={openSession} />
+          <Board
+            onOpenSession={openSession}
+            newSessionTrigger={newSessionTrigger}
+          />
         </div>
 
         <div

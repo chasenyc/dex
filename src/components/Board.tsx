@@ -20,9 +20,10 @@ import { Column } from "./Column";
 
 interface BoardProps {
   onOpenSession: (id: string) => void;
+  newSessionTrigger?: number;
 }
 
-export function Board({ onOpenSession }: BoardProps) {
+export function Board({ onOpenSession, newSessionTrigger }: BoardProps) {
   const columns = useColumns();
   const { sessions } = useSessionStore();
   const [activeCard, setActiveCard] = useState<Session | null>(null);
@@ -97,8 +98,13 @@ export function Board({ onOpenSession }: BoardProps) {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-3 h-full">
-          {columns.map((col) => (
-            <Column key={col} name={col} onOpenSession={onOpenSession} />
+          {columns.map((col, index) => (
+            <Column
+              key={col}
+              name={col}
+              onOpenSession={onOpenSession}
+              autoFocusNew={index === 0 ? newSessionTrigger : undefined}
+            />
           ))}
 
           {/* Add column button */}
