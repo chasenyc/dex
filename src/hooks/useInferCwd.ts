@@ -2,6 +2,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSessions, useSessionsByColumn } from "../store/sessions";
 
+// Cache directory existence checks so we don't call Rust repeatedly
+const dirExistsCache = new Map<string, boolean>();
+
+function checkDirExists(path: string): boolean | undefined {
+  if (path === "~") return true;
+  return dirExistsCache.get(path);
+}
+
+function validateDirAsync(path: string) {
+  if (path === "~" || dirExistsCache.has(path)) return;
+  invoke<boolean>("check_directory_exists", { path }).then((exists) => {
+    dirExistsCache.set(path, exists);
+  });
+}
+
 interface Project {
   name: string;
   path: string;
@@ -66,8 +81,18 @@ export function useInferCwd(name: string, column: string): InferResult {
     const trimmed = name.trim().toLowerCase();
     if (!trimmed) return { cwd: "~", confidence: "none" };
 
+    // Helper: check if a cwd is known-valid (skip known-invalid, async-check unknown)
+    function isValid(path: string): boolean {
+      const status = checkDirExists(path);
+      if (status === false) return false; // known bad
+      if (status === undefined) validateDirAsync(path); // check in background
+      return true; // assume valid until proven otherwise
+    }
+
     // Signal 1: Project name match — full string or any word in the name
-    const exactMatch = projects.find((p) => p.name.toLowerCase() === trimmed);
+    const exactMatch = projects.find(
+      (p) => p.name.toLowerCase() === trimmed && isValid(p.path),
+    );
     if (exactMatch) {
       return { cwd: exactMatch.path, confidence: "high" };
     }
@@ -75,7 +100,9 @@ export function useInferCwd(name: string, column: string): InferResult {
     const words = trimmed.split(/\s+/);
     if (words.length > 1) {
       for (const word of words) {
-        const wordMatch = projects.find((p) => p.name.toLowerCase() === word);
+        const wordMatch = projects.find(
+          (p) => p.name.toLowerCase() === word && isValid(p.path),
+        );
         if (wordMatch) {
           return { cwd: wordMatch.path, confidence: "high" };
         }
@@ -85,7 +112,9 @@ export function useInferCwd(name: string, column: string): InferResult {
     // Signal 2: Column consensus — if 2+ siblings share a cwd
     const cwdCounts = new Map<string, number>();
     for (const s of columnSessions) {
-      cwdCounts.set(s.cwd, (cwdCounts.get(s.cwd) ?? 0) + 1);
+      if (isValid(s.cwd)) {
+        cwdCounts.set(s.cwd, (cwdCounts.get(s.cwd) ?? 0) + 1);
+      }
     }
     for (const [cwd, count] of cwdCounts) {
       if (count >= 2 && cwd !== "~") {
@@ -95,7 +124,7 @@ export function useInferCwd(name: string, column: string): InferResult {
 
     // Signal 3: Most recently used cwd (not ~)
     const recentSession = [...allSessions]
-      .filter((s) => s.cwd !== "~")
+      .filter((s) => s.cwd !== "~" && isValid(s.cwd))
       .sort((a, b) => b.lastActivity - a.lastActivity)[0];
     if (recentSession) {
       return { cwd: recentSession.cwd, confidence: "low" };
