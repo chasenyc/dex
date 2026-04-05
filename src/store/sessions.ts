@@ -208,6 +208,16 @@ export function updateSessionStatus(id: string, status: SessionStatus) {
   scheduleSave();
 }
 
+export function renameSession(id: string, name: string) {
+  const session = store.sessions.get(id);
+  if (!session || session.name === name) return;
+  const next = new Map(store.sessions);
+  next.set(id, { ...session, name });
+  store = { ...store, sessions: next };
+  emitChange();
+  scheduleSave();
+}
+
 export function updateSessionCwd(id: string, cwd: string) {
   const session = store.sessions.get(id);
   if (!session || session.cwd === cwd) return;

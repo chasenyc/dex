@@ -138,7 +138,7 @@ export function App() {
 
         {/* Focus view: show active session name + column */}
         {view === "focus" && activeSession && (
-          <span className="text-[11px] text-[#555555] select-none">
+          <span className="text-[11px] text-[#555555] select-none truncate max-w-[200px]">
             <span className="text-[#666666]">{activeSession.name}</span>
             <span className="mx-1.5 text-[#333333]">·</span>
             <span>{activeSession.column}</span>
@@ -170,11 +170,12 @@ export function App() {
                 key={session.id}
                 type="button"
                 onClick={() => openSession(session.id)}
-                className={`text-[11px] px-2.5 py-1 rounded-md transition-colors duration-100 ${
+                className={`text-[11px] px-2.5 py-1 rounded-md transition-colors duration-100 max-w-[120px] truncate ${
                   activeSession?.id === session.id && view === "focus"
                     ? "bg-[#252525] text-[#e8e8e8]"
                     : "text-[#555555] hover:text-[#888888] hover:bg-white/[0.03]"
                 }`}
+                title={session.name}
               >
                 {session.name}
               </button>

@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { removeSession, type Session } from "../store/sessions";
+import { useRef, useState } from "react";
+import { removeSession, renameSession, type Session } from "../store/sessions";
 
 interface CardProps {
   session: Session;
@@ -34,6 +35,17 @@ export function Card({ session, onOpen }: CardProps) {
     transition,
     isDragging,
   } = useSortable({ id: session.id });
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(session.name);
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  function handleRenameSubmit() {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== session.name) {
+      renameSession(session.id, trimmed);
+    }
+    setRenaming(false);
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -111,9 +123,40 @@ export function Card({ session, onOpen }: CardProps) {
             &gt;_
           </span>
         )}
-        <span className="text-[13px] font-medium text-[#e8e8e8] truncate pr-5">
-          {session.name}
-        </span>
+        {renaming ? (
+          <input
+            ref={renameRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") handleRenameSubmit();
+              if (e.key === "Escape") setRenaming(false);
+            }}
+            onBlur={handleRenameSubmit}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="text-[13px] font-medium text-[#e8e8e8] bg-transparent outline-none border-b border-[#7c6aef]/40 w-full pr-5"
+          />
+        ) : (
+          <button
+            type="button"
+            className="text-[13px] font-medium text-[#e8e8e8] truncate pr-5 cursor-text bg-transparent border-none p-0 text-left"
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setRenameValue(session.name);
+              setRenaming(true);
+              requestAnimationFrame(() => renameRef.current?.select());
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {session.name}
+          </button>
+        )}
       </div>
       <div className="text-[11px] text-[#555555] truncate">{session.cwd}</div>
       {session.type === "claude" &&
