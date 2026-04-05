@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { Board } from "./components/Board";
 import { QuickSwitch } from "./components/QuickSwitch";
@@ -17,12 +18,19 @@ import {
 
 type View = "board" | "focus";
 
+interface GitInfo {
+  branch: string;
+  additions: number;
+  deletions: number;
+}
+
 export function App() {
   const sessions = useSessions();
   const activeSession = useActiveSession();
   const loaded = useRegistryLoaded();
   const [view, setView] = useState<View>("board");
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
+  const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
 
   // Load persisted sessions on startup
   useEffect(() => {
@@ -33,6 +41,25 @@ export function App() {
   useEffect(() => {
     startHookListener();
   }, []);
+
+  // Fetch git info for active session, refresh on cwd change and every 10s
+  useEffect(() => {
+    if (!activeSession || view !== "focus") {
+      setGitInfo(null);
+      return;
+    }
+
+    function fetchGit() {
+      if (!activeSession) return;
+      invoke<GitInfo | null>("get_git_info", { cwd: activeSession.cwd }).then(
+        (info) => setGitInfo(info ?? null),
+      );
+    }
+
+    fetchGit();
+    const interval = setInterval(fetchGit, 10000);
+    return () => clearInterval(interval);
+  }, [activeSession, view]);
 
   const openSession = useCallback(
     (id: string) => {
@@ -136,12 +163,37 @@ export function App() {
           Termaude
         </span>
 
-        {/* Focus view: show active session name + column */}
+        {/* Focus view: show active session name + column + git info */}
         {view === "focus" && activeSession && (
-          <span className="text-[11px] text-[#555555] select-none truncate max-w-[200px]">
-            <span className="text-[#666666]">{activeSession.name}</span>
-            <span className="mx-1.5 text-[#333333]">·</span>
-            <span>{activeSession.column}</span>
+          <span className="text-[11px] text-[#555555] select-none truncate max-w-[300px] flex items-center gap-1.5">
+            <span className="text-[#666666] truncate">
+              {activeSession.name}
+            </span>
+            <span className="text-[#333333]">·</span>
+            <span className="truncate">{activeSession.column}</span>
+            {gitInfo && (
+              <>
+                <span className="text-[#333333]">·</span>
+                <span className="text-[#555555] shrink-0">
+                  {gitInfo.branch}
+                </span>
+                {(gitInfo.additions > 0 || gitInfo.deletions > 0) && (
+                  <span className="shrink-0">
+                    {gitInfo.additions > 0 && (
+                      <span className="text-[#22c55e]">
+                        +{gitInfo.additions}
+                      </span>
+                    )}
+                    {gitInfo.additions > 0 && gitInfo.deletions > 0 && " "}
+                    {gitInfo.deletions > 0 && (
+                      <span className="text-[#ef4444]">
+                        -{gitInfo.deletions}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </>
+            )}
           </span>
         )}
 

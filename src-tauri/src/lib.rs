@@ -1,4 +1,5 @@
 mod commands;
+mod git_status;
 mod hook_server;
 mod hooks;
 mod persistence;
@@ -29,6 +30,7 @@ pub fn run() {
             hooks::install_hooks,
             hooks::uninstall_hooks,
             hooks::check_hooks_status,
+            git_status::get_git_info,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
