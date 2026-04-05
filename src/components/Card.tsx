@@ -90,24 +90,46 @@ export function Card({ session, onOpen }: CardProps) {
           />
         </svg>
       </button>
-      <div className="mb-1">
-        <span className="text-[13px] font-medium text-[#e8e8e8] truncate block pr-5">
+      <div className="mb-1 flex items-center gap-1.5">
+        {session.type === "claude" ? (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 1200 1200"
+            fill="none"
+            role="img"
+            aria-label="Claude"
+            className="shrink-0"
+          >
+            <path
+              fill="#D97757"
+              d="M234 800l235-132 4-11-4-6h-11l-40-3-134-3-116-5-113-6-28-6-27-35 3-18 24-16 34 3 76 5 113 8 82 5 122 13h19l3-8-6-5-5-5-118-79-127-84-66-48-36-25-18-23-8-50 33-36 44 3 11 3 44 34 95 73 124 91 18 15 7-5 1-4-8-13-67-122-72-124-32-51-8-31c-3-13-5-23-5-36l37-50 21-7 49 7 21 18 31 70 50 111 77 151 23 44 12 42 4 12h8v-7l6-85 12-104 11-134 4-38 19-45 37-25 29 14 24 34-3 22-14 92-28 145-18 96 10 1 12-12 49-65 82-103 36-41 42-45 28-21 51 0 38 56-17 58-53 67-44 57-62 84-40 68 4 5 9-1 142-30 77-14 91-16 42 19 4 20-16 40-98 24-115 23-170 40-2 2 2 3 77 7 33 2 81 0 150 11 39 26 24 32-4 24-61 31-81-20-190-45-66-16-9 0 0 5 54 53 100 90 125 116 6 29-16 22-17-2-110-83-42-37-96-80-6 0 0 8 22 33 117 175 6 54-9 17-30 11-33-6-68-96-71-107-57-97-7 4-34 361-16 18-36 14-30-23-16-37 16-74 20-96 16-76 14-86 8-32 0-2-7 1-71 98-109 146-85 91-21 8-35-18-29-58 2-33 20-29 118-150 72-93 46-54 0-8-3 0-315 205-56 7-25-22 3-37 11-12 95-65Z"
+            />
+          </svg>
+        ) : (
+          <span className="text-[11px] font-mono text-[#7c6aef] shrink-0">
+            &gt;_
+          </span>
+        )}
+        <span className="text-[13px] font-medium text-[#e8e8e8] truncate pr-5">
           {session.name}
         </span>
       </div>
       <div className="text-[11px] text-[#555555] truncate">{session.cwd}</div>
-      {session.previewLines && session.previewLines.length > 0 && (
-        <div className="mt-1.5 space-y-0.5">
-          {session.previewLines.map((line) => (
-            <div
-              key={`${session.id}-${line.slice(0, 60)}`}
-              className="text-[10px] font-mono text-[#444444] truncate leading-tight"
-            >
-              {line}
-            </div>
-          ))}
-        </div>
-      )}
+      {session.type === "claude" &&
+        session.previewLines &&
+        session.previewLines.length > 0 && (
+          <div className="mt-1.5 space-y-0.5">
+            {session.previewLines.map((line) => (
+              <div
+                key={`${session.id}-${line.slice(0, 60)}`}
+                className="text-[10px] font-mono text-[#444444] truncate leading-tight"
+              >
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-[#444444]">
           {timeAgo(session.lastActivity)}
