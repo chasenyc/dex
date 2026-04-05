@@ -31,24 +31,31 @@ impl serde::Serialize for PtyError {
 struct Session {
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
+    #[allow(dead_code)]
+    child_pid: Option<u32>,
 }
 
 pub struct PtyManager {
     sessions: Mutex<HashMap<String, Session>>,
+    /// Maps Termaude session ID → child PID for shell cwd tracking
+    session_pids: Mutex<HashMap<String, u32>>,
 }
 
 impl PtyManager {
     pub fn new() -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
+            session_pids: Mutex::new(HashMap::new()),
         }
     }
 
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub fn create_session(
         &self,
         id: &str,
         cwd: Option<&str>,
         command: Option<&str>,
+        session_id: Option<&str>,
         cols: u16,
         rows: u16,
         app: &AppHandle,
@@ -75,7 +82,33 @@ impl PtyManager {
             c.arg(shell_cmd);
             c
         } else {
-            CommandBuilder::new_default_prog()
+            // Shell session — use ZDOTDIR to inject chpwd hook for OSC 7 CWD tracking
+            // Same approach as VS Code, iTerm2, and kitty
+            let mut c = CommandBuilder::new_default_prog();
+            if let Some(sid) = session_id {
+                let home = std::env::var("HOME").unwrap_or_default();
+                let zdotdir = format!("{home}/.termaude/shell/{sid}");
+                let _ = std::fs::create_dir_all(&zdotdir);
+
+                // .zshenv runs first, resets ZDOTDIR so user's real .zshrc loads,
+                // and registers a chpwd hook that emits OSC 7 on directory change
+                let zshenv = format!(
+                    concat!(
+                        "export ZDOTDIR=\"$HOME\"\n",
+                        "_termaude_chpwd() {{\n",
+                        "  printf '\\033]7;file://termaude-{sid}%s\\a' \"$PWD\"\n",
+                        "}}\n",
+                        "autoload -Uz add-zsh-hook\n",
+                        "add-zsh-hook chpwd _termaude_chpwd\n",
+                        "_termaude_chpwd\n",
+                    ),
+                    sid = sid,
+                );
+                let _ = std::fs::write(format!("{zdotdir}/.zshenv"), &zshenv);
+                let _ = std::fs::remove_file(format!("{zdotdir}/.zshrc"));
+                c.env("ZDOTDIR", &zdotdir);
+            }
+            c
         };
         if let Some(dir) = cwd {
             let expanded = if dir.starts_with("~/") {
@@ -92,11 +125,13 @@ impl PtyManager {
             cmd.cwd(expanded);
         }
 
-        pair.slave
+        let child = pair
+            .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
 
-        // Drop the slave — we only need the master side
+        let child_pid = child.process_id();
+
         drop(pair.slave);
 
         let reader = pair
@@ -109,7 +144,7 @@ impl PtyManager {
             .take_writer()
             .map_err(|e| PtyError::Open(e.to_string()))?;
 
-        let session_id = id.to_string();
+        let pty_id = id.to_string();
         let app_handle = app.clone();
 
         // Spawn a thread to read PTY output and emit events to the frontend
@@ -120,13 +155,13 @@ impl PtyManager {
                 match std::io::Read::read(&mut buf_reader, &mut buf) {
                     Ok(0) => {
                         // PTY closed — process exited
-                        let _ = app_handle.emit(&format!("pty-exit-{session_id}"), ());
+                        let _ = app_handle.emit(&format!("pty-exit-{pty_id}"), ());
                         break;
                     }
                     Ok(n) => {
                         // Send raw bytes as a vec so xterm.js can handle them
                         let data = buf[..n].to_vec();
-                        let _ = app_handle.emit(&format!("pty-output-{session_id}"), data);
+                        let _ = app_handle.emit(&format!("pty-output-{pty_id}"), data);
                     }
                     Err(_) => break,
                 }
@@ -143,8 +178,16 @@ impl PtyManager {
             Session {
                 writer,
                 master: pair.master,
+                child_pid,
             },
         );
+
+        // Store session_id → pid mapping for cwd tracking
+        if let (Some(sid), Some(pid)) = (session_id, child_pid) {
+            if let Ok(mut pids) = self.session_pids.lock() {
+                pids.insert(sid.to_string(), pid);
+            }
+        }
 
         Ok(())
     }

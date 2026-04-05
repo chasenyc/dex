@@ -22,6 +22,7 @@ pub struct StateUpdate {
     pub state: String,
     pub event: String,
     pub preview_lines: Vec<String>,
+    pub cwd: Option<String>,
     pub timestamp: u64,
 }
 
@@ -88,8 +89,25 @@ pub fn start(app: AppHandle) {
             if let Ok(event) = serde_json::from_str::<HookEvent>(&body) {
                 if let (Some(session_id), Some(event_name)) = (&event.session_id, &event.event_name)
                 {
-                    if let Some(state) = map_event_to_state(&event) {
-                        // Extract preview from last_assistant_message in Stop events
+                    // ShellPwd is a custom event from our injected precmd hook
+                    if event_name == "ShellPwd" {
+                        let home = std::env::var("HOME").unwrap_or_default();
+                        let cwd = event.cwd.as_deref().unwrap_or("~");
+                        let display_cwd = if cwd.starts_with(&home) {
+                            format!("~{}", &cwd[home.len()..])
+                        } else {
+                            cwd.to_string()
+                        };
+                        let update = StateUpdate {
+                            session_id: session_id.clone(),
+                            state: String::new(),
+                            event: "ShellPwd".to_string(),
+                            preview_lines: Vec::new(),
+                            cwd: Some(display_cwd),
+                            timestamp: now_millis(),
+                        };
+                        let _ = app.emit("hook-state-update", &update);
+                    } else if let Some(state) = map_event_to_state(&event) {
                         let preview_lines = if let Some(msg) = &event.last_assistant_message {
                             msg.lines()
                                 .rev()
@@ -109,6 +127,7 @@ pub fn start(app: AppHandle) {
                             state: state.to_string(),
                             event: event_name.clone(),
                             preview_lines,
+                            cwd: None,
                             timestamp: now_millis(),
                         };
                         let _ = app.emit("hook-state-update", &update);

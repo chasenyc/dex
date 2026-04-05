@@ -208,6 +208,16 @@ export function updateSessionStatus(id: string, status: SessionStatus) {
   scheduleSave();
 }
 
+export function updateSessionCwd(id: string, cwd: string) {
+  const session = store.sessions.get(id);
+  if (!session || session.cwd === cwd) return;
+  const next = new Map(store.sessions);
+  next.set(id, { ...session, cwd });
+  store = { ...store, sessions: next };
+  emitChange();
+  scheduleSave();
+}
+
 export function updateSessionColumn(id: string, column: string) {
   const session = store.sessions.get(id);
   if (!session) return;
@@ -343,13 +353,25 @@ export function startHookListener() {
     state: string;
     event: string;
     preview_lines: string[];
+    cwd: string | null;
   }>("hook-state-update", (event) => {
-    const { session_id, state, preview_lines } = event.payload;
+    const { session_id, state, preview_lines, cwd } = event.payload;
+    const { sessions } = store;
+
+    // For ShellPwd events, match by Termaude session ID (not claudeSessionId)
+    if (cwd) {
+      for (const session of sessions.values()) {
+        if (session.id === session_id) {
+          updateSessionCwd(session.id, cwd);
+          break;
+        }
+      }
+      return;
+    }
+
+    // For Claude hook events, match by claudeSessionId
     const status = STATUS_MAP[state];
     if (!status) return;
-
-    // Match only by exact Claude session ID — ignore non-Termaude sessions
-    const { sessions } = store;
 
     for (const session of sessions.values()) {
       if (session.claudeSessionId === session_id) {

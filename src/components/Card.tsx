@@ -132,7 +132,7 @@ export function Card({ session, onOpen }: CardProps) {
         )}
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-[#444444]">
-          {timeAgo(session.lastActivity)}
+          {timeAgo(session.createdAt)} · {timeAgo(session.lastActivity)}
         </span>
         <span
           className={`w-2 h-2 rounded-full shrink-0 ${dot.color} ${

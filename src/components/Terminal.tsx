@@ -5,7 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
-import { updateSessionStatus } from "../store/sessions";
+import { updateSessionCwd, updateSessionStatus } from "../store/sessions";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
@@ -27,6 +27,15 @@ export function Terminal({
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<string | null>(null);
+
+  // Store initial values and callbacks in refs so the main useEffect only depends
+  // on sessionId. Without this, every CWD update from the OSC 7 hook would flow
+  // back through the parent as a new `cwd` prop, re-triggering the effect and
+  // destroying + recreating the entire terminal (the "screen clear" bug).
+  const initialCwdRef = useRef(cwd);
+  const initialCommandRef = useRef(command);
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
 
   // Create terminal and PTY on mount
   useEffect(() => {
@@ -81,6 +90,22 @@ export function Terminal({
 
     fitAddon.fit();
 
+    // Capture CWD from shell chpwd hook via OSC 7
+    // Format: file://termaude-<session-id>/absolute/path
+    const oscDisposable = term.parser.registerOscHandler(7, (data) => {
+      const prefix = `file://termaude-${sessionId}`;
+      if (data.startsWith(prefix)) {
+        const pwd = data.slice(prefix.length);
+        if (pwd) {
+          updateSessionCwd(
+            sessionId,
+            decodeURIComponent(pwd).replace(/^\/Users\/[^/]+/, "~"),
+          );
+        }
+      }
+      return false;
+    });
+
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
@@ -89,8 +114,9 @@ export function Terminal({
 
     invoke("create_session", {
       id: ptyId,
-      cwd,
-      command,
+      cwd: initialCwdRef.current,
+      command: initialCommandRef.current,
+      sessionId,
       cols: term.cols,
       rows: term.rows,
     }).catch((err: unknown) => {
@@ -105,7 +131,7 @@ export function Terminal({
 
     const exitUnlisten = listen(`pty-exit-${ptyId}`, () => {
       updateSessionStatus(sessionId, "closed");
-      onExit?.();
+      onExitRef.current?.();
     });
 
     const onDataDisposable = term.onData((data: string) => {
@@ -131,6 +157,7 @@ export function Terminal({
 
     return () => {
       window.removeEventListener("resize", handleWindowResize);
+      oscDisposable.dispose();
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
       outputUnlisten.then((unlisten) => unlisten());
@@ -138,7 +165,7 @@ export function Terminal({
       invoke("close_session", { id: ptyId }).catch(() => {});
       term.dispose();
     };
-  }, [sessionId, cwd, command, onExit]);
+  }, [sessionId]);
 
   // Re-fit when visibility changes
   useEffect(() => {
