@@ -153,6 +153,19 @@ fn do_scan() -> Vec<Project> {
 }
 
 #[tauri::command]
+pub fn check_directory_exists(path: String) -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let abs = if path.starts_with("~/") {
+        format!("{}{}", home, &path[1..])
+    } else if path == "~" {
+        home
+    } else {
+        path
+    };
+    std::path::Path::new(&abs).is_dir()
+}
+
+#[tauri::command]
 pub fn scan_projects(app: AppHandle) -> Result<Vec<Project>, String> {
     let projects = do_scan();
 

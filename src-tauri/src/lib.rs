@@ -25,6 +25,7 @@ pub fn run() {
             persistence::save_registry,
             project_index::scan_projects,
             project_index::load_project_index,
+            project_index::check_directory_exists,
             hooks::install_hooks,
             hooks::uninstall_hooks,
             hooks::check_hooks_status,

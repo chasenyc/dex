@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
 import { useInferCwd } from "../hooks/useInferCwd";
 import { addSession, type SessionType } from "../store/sessions";
@@ -26,10 +27,20 @@ export function NewSessionInput({ column, onCreated }: NewSessionInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const inferred = useInferCwd(value, column);
 
-  function createSession(cwd: string) {
+  async function createSession(cwd: string) {
     if (!value.trim()) return;
+    // Validate directory exists, fall back to ~ if not
+    let validCwd = cwd;
+    if (cwd !== "~") {
+      const exists = await invoke<boolean>("check_directory_exists", {
+        path: cwd,
+      });
+      if (!exists) {
+        validCwd = "~";
+      }
+    }
     const { name, type } = parseInput(value);
-    const session = addSession({ name, cwd, column, type });
+    const session = addSession({ name, cwd: validCwd, column, type });
     setValue("");
     setEditing(false);
     setPickerOpen(false);
