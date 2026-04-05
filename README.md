@@ -8,16 +8,22 @@ A kanban board for your Claude Code sessions.
 
 You're running Claude Code across five tasks. Five terminal tabs. Which one was the auth fix? Did you close the migration session? What was that API thing you started yesterday?
 
+Close a terminal and the session is gone. Forget to resume and you're starting from scratch — re-explaining context Claude already had. You end up keeping sessions open just to avoid losing them, and your desktop fills with terminals you can't tell apart.
+
 Terminal tabs don't work for AI-assisted development. They're anonymous, ephemeral, and flat. You need something spatial.
 
 ## What Dex Does
 
-Dex organizes your Claude Code sessions as cards on a kanban board. Each card is a live (or resumable) Claude session. You see what's running, what's waiting for input, and what's done — at a glance.
+Dex treats every Claude session as a persistent work item on a kanban board. Sessions don't disappear when you close them — they stay on the board as cards you can pick back up anytime. The conversation, the context, the working directory — it's all there when you come back.
+
+You stop managing terminals and start managing work.
 
 - **Create a session** by typing a name. Dex figures out the working directory automatically.
-- **Double-click a card** to enter the full-screen terminal.
-- **Close a session** and it stays on the board. Double-click to resume the conversation.
-- **Drag cards** between columns to track your workflow.
+- **Work in a full-screen terminal.** Every feature you'd expect — colors, WebGL rendering, copy/paste.
+- **Close whenever you want.** The card stays on the board. Come back in five minutes or five days.
+- **Resume with a double-click.** Claude picks up exactly where you left off. No re-explaining.
+- **See everything at a glance.** Which sessions are running, which need your input, which are done.
+- **Drag cards** between columns to match your workflow — backlog, active, done, or whatever you want.
 
 ## Install
 
